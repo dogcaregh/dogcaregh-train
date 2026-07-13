@@ -5,6 +5,15 @@ import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { programTotal, totalSessions } from "@/lib/pricing";
 
+// Sign-out MUST be a POST action, never a GET route: a GET /logout can be
+// prefetched by Next.js <Link>, hit by browsers/crawlers, etc., silently
+// clearing the shared .dogcaregh.com session. A form POST can't be prefetched.
+export async function signOutAction() {
+  const supabase = createServerSupabaseClient();
+  await supabase.auth.signOut();
+  redirect("/");
+}
+
 async function authed() {
   const supabase = createServerSupabaseClient();
   const {

@@ -1,4 +1,5 @@
 import { getServerUser } from "@/lib/owner-data";
+import { signOutAction } from "@/app/actions";
 
 // Plain <a> anchors (full navigation) rather than next/link on purpose: every
 // route here is auth-gated and redirects when logged out, and Next's client
@@ -20,7 +21,9 @@ export async function OwnerNav() {
           {user && (
             <span className="hidden sm:inline text-xs text-muted">{user.email}</span>
           )}
-          <a href="/logout" className="text-gold font-semibold hover:underline">Sign out</a>
+          <form action={signOutAction}>
+            <button type="submit" className="text-gold font-semibold hover:underline">Sign out</button>
+          </form>
         </nav>
       </div>
     </header>

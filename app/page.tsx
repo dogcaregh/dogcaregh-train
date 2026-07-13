@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { signOutAction } from "@/app/actions";
 
 // Always read the live session — never statically cache this page.
 export const dynamic = "force-dynamic";
@@ -42,14 +43,14 @@ export default async function Home() {
             >
               Find a dog trainer →
             </a>
-            <div className="mt-4">
-              <Link
-                href="/logout"
+            <form action={signOutAction} className="mt-4">
+              <button
+                type="submit"
                 className="text-sm text-gold font-semibold hover:underline"
               >
                 Sign out (clears the shared session on both apps)
-              </Link>
-            </div>
+              </button>
+            </form>
           </div>
         ) : (
           <div className="mt-6">

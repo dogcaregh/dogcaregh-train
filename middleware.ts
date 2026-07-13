@@ -44,12 +44,7 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  const { data: { user: mwUser }, error: mwErr } = await supabase.auth.getUser();
-  console.log(
-    `[DIAG mw] path=${request.nextUrl.pathname} host=${request.nextUrl.hostname}` +
-    ` user=${mwUser?.id ?? "null"} err=${mwErr?.message ?? "none"}` +
-    ` sbcookies=${request.cookies.getAll().filter((c) => c.name.startsWith("sb-")).map((c) => c.name).join("|")}`
-  );
+  await supabase.auth.getUser();
 
   return supabaseResponse;
 }
