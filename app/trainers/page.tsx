@@ -38,7 +38,7 @@ export default async function TrainersPage() {
         ) : (
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             {trainers.map((t, i) => (
-              <Link
+              <a
                 key={t.id}
                 href={`/trainers/${t.id}`}
                 className="block rounded-2xl bg-white border border-hairline p-5 hover:border-gold transition-colors"
