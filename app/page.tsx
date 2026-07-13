@@ -43,6 +43,11 @@ export default async function Home() {
             >
               Find a dog trainer →
             </a>
+            <div className="mt-3">
+              <a href="/trainer" className="text-sm text-gold font-semibold hover:underline">
+                I&apos;m a trainer →
+              </a>
+            </div>
             <form action={signOutAction} className="mt-4">
               <button
                 type="submit"

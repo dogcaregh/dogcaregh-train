@@ -131,6 +131,180 @@ export async function acceptRecommendation(formData: FormData) {
   redirect("/bookings?booked=recommendation");
 }
 
+// ── Trainer side ─────────────────────────────────────────────
+
+function splitList(v: FormDataEntryValue | null): string[] {
+  return String(v ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+async function myTrainerProfileId(
+  supabase: Awaited<ReturnType<typeof authed>>["supabase"],
+  userId: string
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("trainer_profiles")
+    .select("id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
+export async function saveTrainerProfile(formData: FormData) {
+  const { supabase, user } = await authed();
+  const evalFee = Math.max(300, Number(formData.get("eval_fee") || 300)); // DB floor is ₵300
+
+  await supabase.from("trainer_profiles").upsert(
+    {
+      user_id: user.id,
+      bio: String(formData.get("bio") ?? "").trim() || null,
+      specialties: splitList(formData.get("specialties")),
+      breeds: splitList(formData.get("breeds")),
+      neighbourhoods: splitList(formData.get("neighbourhoods")),
+      methods: String(formData.get("methods") ?? "").trim() || null,
+      credentials: String(formData.get("credentials") ?? "").trim() || null,
+      years_experience: formData.get("years_experience")
+        ? Number(formData.get("years_experience"))
+        : null,
+      eval_fee: evalFee,
+      // TODO: real vetting is admin-approved. Auto-verify in preview so the
+      // trainer is discoverable end-to-end for testing.
+      vetting_status: "verified",
+      active: true,
+    },
+    { onConflict: "user_id" }
+  );
+
+  // One account can be both owner and trainer.
+  await supabase.from("users").update({ is_trainer: true }).eq("id", user.id);
+
+  revalidatePath("/trainer");
+  redirect("/trainer");
+}
+
+export async function saveProgram(formData: FormData) {
+  const { supabase, user } = await authed();
+  const trainerId = await myTrainerProfileId(supabase, user.id);
+  if (!trainerId) redirect("/trainer/profile");
+
+  const programId = String(formData.get("program_id") ?? "") || null;
+  const price = Number(formData.get("price") || 0);
+  const row = {
+    trainer_id: trainerId,
+    name: String(formData.get("name") ?? "").trim(),
+    description: String(formData.get("description") ?? "").trim() || null,
+    weeks: Number(formData.get("weeks") || 1),
+    sessions_per_week: Number(formData.get("sessions_per_week") || 1),
+    price,
+    discount: Math.min(Number(formData.get("discount") || 0), price), // DB: discount <= price
+    active: true,
+  };
+
+  if (programId) {
+    await supabase.from("trainer_programs").update(row).eq("id", programId);
+  } else {
+    await supabase.from("trainer_programs").insert(row);
+  }
+
+  revalidatePath("/trainer/programs");
+  redirect("/trainer/programs");
+}
+
+export async function deleteProgram(formData: FormData) {
+  const { supabase } = await authed();
+  await supabase.from("trainer_programs").delete().eq("id", String(formData.get("program_id")));
+  revalidatePath("/trainer/programs");
+  redirect("/trainer/programs");
+}
+
+export async function scheduleEvaluation(formData: FormData) {
+  const { supabase } = await authed();
+  const when = String(formData.get("scheduled_at") ?? "").trim();
+  await supabase
+    .from("trainer_evaluations")
+    .update({ status: "scheduled", scheduled_at: when ? new Date(when).toISOString() : null })
+    .eq("id", String(formData.get("evaluation_id")));
+  revalidatePath("/trainer/leads");
+  redirect("/trainer/leads");
+}
+
+export async function sendRecommendation(formData: FormData) {
+  const { supabase, user } = await authed();
+  const trainerId = await myTrainerProfileId(supabase, user.id);
+  if (!trainerId) redirect("/trainer/profile");
+
+  const evaluationId = String(formData.get("evaluation_id"));
+  const { data: evaluation } = await supabase
+    .from("trainer_evaluations")
+    .select("id, owner_id")
+    .eq("id", evaluationId)
+    .maybeSingle();
+  if (!evaluation) redirect("/trainer/leads");
+
+  const isCustom = String(formData.get("mode")) === "custom";
+  let row: {
+    name: string | null;
+    sessions_per_week: number;
+    weeks: number;
+    price: number;
+    discount: number;
+    is_custom: boolean;
+  };
+
+  if (isCustom) {
+    const price = Number(formData.get("price") || 0);
+    row = {
+      name: String(formData.get("name") ?? "").trim() || "Custom plan",
+      sessions_per_week: Number(formData.get("sessions_per_week") || 1),
+      weeks: Number(formData.get("weeks") || 1),
+      price,
+      discount: Math.min(Number(formData.get("discount") || 0), price),
+      is_custom: true,
+    };
+  } else {
+    const { data: program } = await supabase
+      .from("trainer_programs")
+      .select("name, sessions_per_week, weeks, price, discount")
+      .eq("id", String(formData.get("program_id")))
+      .maybeSingle();
+    if (!program) redirect("/trainer/leads");
+    row = {
+      name: program.name,
+      sessions_per_week: program.sessions_per_week,
+      weeks: program.weeks,
+      price: Number(program.price),
+      discount: Number(program.discount),
+      is_custom: false,
+    };
+  }
+
+  await supabase.from("trainer_recommendations").insert({
+    evaluation_id: evaluationId,
+    owner_id: evaluation.owner_id,
+    trainer_id: trainerId,
+    status: "sent",
+    note: String(formData.get("note") ?? "").trim() || null,
+    ...row,
+  });
+
+  await supabase.from("trainer_evaluations").update({ status: "completed" }).eq("id", evaluationId);
+
+  revalidatePath("/trainer/leads");
+  redirect("/trainer/leads?sent=1");
+}
+
+export async function markSessionComplete(formData: FormData) {
+  const { supabase } = await authed();
+  await supabase
+    .from("trainer_sessions")
+    .update({ status: "completed", released_at: new Date().toISOString() })
+    .eq("id", String(formData.get("session_id")));
+  revalidatePath("/trainer/bookings");
+  redirect("/trainer/bookings");
+}
+
 type BookingArgs = {
   ownerId: string;
   trainerId: string;
