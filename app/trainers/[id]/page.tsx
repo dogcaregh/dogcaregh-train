@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { OwnerNav } from "@/components/owner-nav";
 import { getTrainer } from "@/lib/owner-data";
@@ -15,7 +14,7 @@ export default async function TrainerPage({ params }: { params: { id: string } }
     <>
       <OwnerNav />
       <main className="mx-auto max-w-3xl px-5 py-8">
-        <Link href="/trainers" className="text-sm text-gold hover:underline">← All trainers</Link>
+        <a href="/trainers" className="text-sm text-gold hover:underline">← All trainers</a>
 
         <h1 className="mt-3 text-3xl text-espresso">{t.name}</h1>
         <p className="mt-1 text-sm text-muted">{t.neighbourhoods.join(", ")}</p>

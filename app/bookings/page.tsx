@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { OwnerNav } from "@/components/owner-nav";
 import { listMyBookings, listMyEvaluations, relName } from "@/lib/owner-data";
 import { cedis } from "@/lib/pricing";
@@ -35,7 +34,7 @@ export default async function BookingsPage({
           <h2 className="text-lg text-espresso">Evaluations</h2>
           {evals.length === 0 ? (
             <p className="mt-2 text-sm text-muted">
-              No evaluations yet. <Link href="/trainers" className="text-gold hover:underline">Find a trainer →</Link>
+              No evaluations yet. <a href="/trainers" className="text-gold hover:underline">Find a trainer →</a>
             </p>
           ) : (
             <div className="mt-3 grid gap-3">

@@ -36,13 +36,12 @@ export default async function Home() {
             <p className="mt-4 text-sm text-muted">
               You arrived here already authenticated — no second login.
             </p>
-            <Link
+            <a
               href="/trainers"
-              prefetch={false}
               className="mt-6 inline-block rounded-full bg-espresso text-ivory text-sm font-semibold px-5 py-2.5 hover:bg-mahogany transition-colors"
             >
               Find a dog trainer →
-            </Link>
+            </a>
             <div className="mt-4">
               <Link
                 href="/logout"

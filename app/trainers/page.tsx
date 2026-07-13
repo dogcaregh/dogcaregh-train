@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { OwnerNav } from "@/components/owner-nav";
 import { getMyOwnerProfile, listRankedTrainers } from "@/lib/owner-data";
 import { cedis } from "@/lib/pricing";
@@ -20,16 +19,16 @@ export default async function TrainersPage() {
             <p className="text-xs uppercase tracking-[0.2em] text-gold font-semibold">Best fit first</p>
             <h1 className="mt-1 text-3xl text-espresso">Your trainers</h1>
           </div>
-          <Link href="/onboarding" className="text-sm text-gold font-semibold hover:underline whitespace-nowrap">
+          <a href="/onboarding" className="text-sm text-gold font-semibold hover:underline whitespace-nowrap">
             {profile ? "Edit my answers" : "Answer questions"}
-          </Link>
+          </a>
         </div>
 
         {!profile && (
           <div className="mt-5 rounded-xl bg-cream border border-hairline p-4 text-sm text-walnut">
-            <Link href="/onboarding" className="font-semibold text-espresso underline">
+            <a href="/onboarding" className="font-semibold text-espresso underline">
               Answer a few quick questions
-            </Link>{" "}
+            </a>{" "}
             and we&apos;ll rank trainers by fit for your dog. Below is everyone for now.
           </div>
         )}
@@ -67,7 +66,7 @@ export default async function TrainersPage() {
                   </span>
                 </div>
                 <div className="mt-1 text-xs text-muted">Evaluation {cedis(t.eval_fee)}</div>
-              </Link>
+              </a>
             ))}
           </div>
         )}
