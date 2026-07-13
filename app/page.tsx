@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { signOutAction } from "@/app/actions";
 
@@ -9,6 +10,10 @@ const CARE_APP = "https://dogcaregh.com";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://train.dogcaregh.com";
 
 export default async function Home() {
+  // Return the new owner to whichever host they're on (trainpreview now,
+  // train.dogcaregh.com after cutover) — both are *.dogcaregh.com.
+  const host = headers().get("host");
+  const returnBase = host ? `https://${host}` : SITE_URL;
   const supabase = createServerSupabaseClient();
   const {
     data: { user },
@@ -69,7 +74,7 @@ export default async function Home() {
               </p>
             </div>
             <a
-              href={`${CARE_APP}/register/owner?return_to=${encodeURIComponent(`${SITE_URL}/onboarding`)}`}
+              href={`${CARE_APP}/register/owner?return_to=${encodeURIComponent(`${returnBase}/onboarding`)}`}
               className="mt-5 inline-block rounded-full bg-espresso text-ivory text-sm font-semibold px-5 py-2.5 hover:bg-mahogany transition-colors"
             >
               Sign up to book training →
