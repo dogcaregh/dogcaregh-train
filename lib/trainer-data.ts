@@ -66,29 +66,35 @@ export async function getMyLeads(): Promise<Lead[]> {
 
   const { data: evals } = await supabase
     .from("trainer_evaluations")
-    .select("id, owner_id, program_id, fee, status, scheduled_at, created_at")
+    .select("id, owner_id, program_id, dog_id, fee, status, scheduled_at, created_at")
     .eq("trainer_id", profile.id)
     .order("created_at", { ascending: false });
   if (!evals || evals.length === 0) return [];
 
   const ownerIds = [...new Set(evals.map((e) => e.owner_id))];
   const evalIds = evals.map((e) => e.id);
+  const dogIds = [...new Set(evals.map((e) => e.dog_id).filter(Boolean))] as string[];
 
-  const [{ data: owners }, { data: intakes }, { data: recos }] = await Promise.all([
+  const [{ data: owners }, { data: intakes }, { data: recos }, { data: dogRows }] = await Promise.all([
     supabase.from("users").select("id, name").in("id", ownerIds),
     supabase
       .from("trainer_owner_profiles")
-      .select("user_id, goal, dog_breed, dog_name, budget, neighbourhood")
+      .select("user_id, goal, budget, neighbourhood")
       .in("user_id", ownerIds),
     supabase.from("trainer_recommendations").select("evaluation_id").in("evaluation_id", evalIds),
+    dogIds.length
+      ? supabase.from("dogs").select("id, name, breed").in("id", dogIds)
+      : Promise.resolve({ data: [] as { id: string; name: string; breed: string | null }[] }),
   ]);
 
   const nameById = new Map((owners ?? []).map((o) => [o.id, o.name]));
   const intakeById = new Map((intakes ?? []).map((i) => [i.user_id, i]));
   const recoEvalIds = new Set((recos ?? []).map((r) => r.evaluation_id));
+  const dogById = new Map((dogRows ?? []).map((d) => [d.id, d]));
 
   return evals.map((e): Lead => {
     const intake = intakeById.get(e.owner_id);
+    const dog = e.dog_id ? dogById.get(e.dog_id) : null;
     return {
       id: e.id,
       owner_id: e.owner_id,
@@ -99,8 +105,8 @@ export async function getMyLeads(): Promise<Lead[]> {
       created_at: e.created_at,
       ownerName: nameById.get(e.owner_id) ?? "An owner",
       goal: intake?.goal ?? null,
-      dogBreed: intake?.dog_breed ?? null,
-      dogName: intake?.dog_name ?? null,
+      dogBreed: dog?.breed ?? null,
+      dogName: dog?.name ?? null,
       budget: intake?.budget != null ? Number(intake.budget) : null,
       neighbourhood: intake?.neighbourhood ?? null,
       hasRecommendation: recoEvalIds.has(e.id),

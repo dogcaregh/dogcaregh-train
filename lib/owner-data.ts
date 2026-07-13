@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 export type OwnerProfile = {
   user_id: string;
+  dog_id: string | null;
   dog_name: string | null;
   dog_breed: string | null;
   goal: string | null;
@@ -65,11 +66,32 @@ export async function requireUser() {
   return { supabase: createServerSupabaseClient(), user };
 }
 
+export type Dog = {
+  id: string;
+  name: string;
+  breed: string | null;
+  age: number | null;
+  size: string | null;
+  temperament: string | null;
+  vaccination_status: boolean;
+};
+
+/** The owner's dogs — the SHARED DogCareGH dogs table (visible in both apps). */
+export async function getMyDogs(): Promise<Dog[]> {
+  const { supabase, user } = await requireUser();
+  const { data } = await supabase
+    .from("dogs")
+    .select("id, name, breed, age, size, temperament, vaccination_status")
+    .eq("owner_id", user.id)
+    .order("created_at", { ascending: true });
+  return (data as Dog[]) ?? [];
+}
+
 export async function getMyOwnerProfile(): Promise<OwnerProfile | null> {
   const { supabase, user } = await requireUser();
   const { data } = await supabase
     .from("trainer_owner_profiles")
-    .select("user_id, dog_name, dog_breed, goal, budget, schedule, neighbourhood")
+    .select("user_id, dog_id, dog_name, dog_breed, goal, budget, schedule, neighbourhood")
     .eq("user_id", user.id)
     .maybeSingle();
   return (data as OwnerProfile) ?? null;

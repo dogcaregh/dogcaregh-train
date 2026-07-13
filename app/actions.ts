@@ -23,16 +23,60 @@ async function authed() {
   return { supabase, user };
 }
 
+export async function addDog(formData: FormData) {
+  const { supabase, user } = await authed();
+  const { data: dog } = await supabase
+    .from("dogs")
+    .insert({
+      owner_id: user.id,
+      name: String(formData.get("name") ?? "").trim(),
+      breed: String(formData.get("breed") ?? "").trim() || null,
+      age: formData.get("age") ? Number(formData.get("age")) : null,
+      size: String(formData.get("size") ?? "").trim() || null,
+      temperament: String(formData.get("temperament") ?? "").trim() || null,
+      vaccination_status: formData.get("vaccination_status") === "on",
+    })
+    .select("id")
+    .single();
+
+  // If the owner has no primary dog on their training profile yet, set this one.
+  if (dog) {
+    const { data: profile } = await supabase
+      .from("trainer_owner_profiles")
+      .select("user_id, dog_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (profile && !profile.dog_id) {
+      await supabase.from("trainer_owner_profiles").update({ dog_id: dog.id }).eq("user_id", user.id);
+    }
+  }
+
+  revalidatePath("/dogs");
+  redirect(String(formData.get("next") || "/dogs"));
+}
+
 export async function saveOwnerProfile(formData: FormData) {
   const { supabase, user } = await authed();
   const budgetRaw = String(formData.get("budget") ?? "").trim();
   const budget = budgetRaw ? Number(budgetRaw) : null;
 
+  const dogId = String(formData.get("dog_id") ?? "") || null;
+  // Denormalise the chosen dog's name/breed onto the profile so matching stays
+  // a simple read (breed is a ranking signal). The dog is the source of truth.
+  let dogName: string | null = null;
+  let dogBreed: string | null = null;
+  if (dogId) {
+    const { data: dog } = await supabase.from("dogs").select("name, breed").eq("id", dogId).maybeSingle();
+    dogName = dog?.name ?? null;
+    dogBreed = dog?.breed ?? null;
+  }
+
   await supabase.from("trainer_owner_profiles").upsert(
     {
       user_id: user.id,
-      dog_name: String(formData.get("dog_name") ?? "").trim() || null,
-      dog_breed: String(formData.get("dog_breed") ?? "").trim() || null,
+      dog_id: dogId,
+      dog_name: dogName,
+      dog_breed: dogBreed,
       goal: String(formData.get("goal") ?? "").trim() || null,
       budget: budget != null && !Number.isNaN(budget) ? budget : null,
       schedule: String(formData.get("schedule") ?? "").trim() || null,
@@ -43,6 +87,19 @@ export async function saveOwnerProfile(formData: FormData) {
 
   revalidatePath("/trainers");
   redirect("/trainers");
+}
+
+/** The dog to attach to a new evaluation/booking = the owner's chosen dog. */
+async function ownerDogId(
+  supabase: Awaited<ReturnType<typeof authed>>["supabase"],
+  userId: string
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("trainer_owner_profiles")
+    .select("dog_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  return data?.dog_id ?? null;
 }
 
 export async function bookEvaluation(formData: FormData) {
@@ -57,11 +114,16 @@ export async function bookEvaluation(formData: FormData) {
     .maybeSingle();
   if (!tp) redirect("/trainers");
 
+  // Bookings are per-dog. Require the owner to have chosen a dog first.
+  const dogId = await ownerDogId(supabase, user.id);
+  if (!dogId) redirect(`/dogs?next=${encodeURIComponent(`/trainers/${trainerId}`)}`);
+
   // Payment is Phase 4 — the evaluation is created as 'requested' (unpaid).
   await supabase.from("trainer_evaluations").insert({
     owner_id: user.id,
     trainer_id: trainerId,
     program_id: programId,
+    dog_id: dogId,
     fee: Number(tp.eval_fee),
     status: "requested",
   });
@@ -86,6 +148,9 @@ export async function rebookProgram(formData: FormData) {
     .maybeSingle();
   if (!prog) redirect("/trainers");
 
+  const dogId = await ownerDogId(supabase, user.id);
+  if (!dogId) redirect(`/dogs?next=${encodeURIComponent(`/trainers/${prog.trainer_id}`)}`);
+
   const total = programTotal(Number(prog.price), prog.sessions_per_week, prog.weeks, Number(prog.discount));
   const count = totalSessions(prog.sessions_per_week, prog.weeks);
 
@@ -94,6 +159,7 @@ export async function rebookProgram(formData: FormData) {
     trainerId: prog.trainer_id,
     programId: prog.id,
     recommendationId: null,
+    dogId,
     sessionsTotal: count,
     gross: total,
   });
@@ -108,10 +174,17 @@ export async function acceptRecommendation(formData: FormData) {
 
   const { data: rec } = await supabase
     .from("trainer_recommendations")
-    .select("id, trainer_id, price, sessions_per_week, weeks, discount, status")
+    .select("id, trainer_id, evaluation_id, price, sessions_per_week, weeks, discount, status")
     .eq("id", recId)
     .maybeSingle();
   if (!rec || rec.status !== "sent") redirect("/recommendations");
+
+  // The booking is for the same dog the evaluation was about.
+  const { data: ev } = await supabase
+    .from("trainer_evaluations")
+    .select("dog_id")
+    .eq("id", rec.evaluation_id)
+    .maybeSingle();
 
   const total = programTotal(Number(rec.price), rec.sessions_per_week, rec.weeks, Number(rec.discount));
   const count = totalSessions(rec.sessions_per_week, rec.weeks);
@@ -121,6 +194,7 @@ export async function acceptRecommendation(formData: FormData) {
     trainerId: rec.trainer_id,
     programId: null,
     recommendationId: rec.id,
+    dogId: ev?.dog_id ?? null,
     sessionsTotal: count,
     gross: total,
   });
@@ -310,6 +384,7 @@ type BookingArgs = {
   trainerId: string;
   programId: string | null;
   recommendationId: string | null;
+  dogId: string | null;
   sessionsTotal: number;
   gross: number;
 };
@@ -325,6 +400,7 @@ async function createBookingWithSessions(
       trainer_id: a.trainerId,
       program_id: a.programId,
       recommendation_id: a.recommendationId,
+      dog_id: a.dogId,
       status: "pending", // payment (Phase 4) will move this to 'paid'
       sessions_total: a.sessionsTotal,
       gross_amount: a.gross,

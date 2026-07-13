@@ -6,6 +6,7 @@ import { signOutAction } from "@/app/actions";
 export const dynamic = "force-dynamic";
 
 const CARE_APP = "https://dogcaregh.com";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://train.dogcaregh.com";
 
 export default async function Home() {
   const supabase = createServerSupabaseClient();
@@ -67,22 +68,25 @@ export default async function Home() {
                 You&apos;re not signed in on <code>.dogcaregh.com</code> yet.
               </p>
             </div>
-            <p className="mt-4 text-sm text-muted">
-              Already a DogCareGH owner?{" "}
-              <a
-                href={CARE_APP}
-                className="text-gold font-semibold hover:underline"
-              >
-                Log in at dogcaregh.com
-              </a>{" "}
-              then return here — you&apos;ll land signed in.
-            </p>
-            <Link
-              href="/signup"
-              className="mt-6 inline-block rounded-full bg-espresso text-ivory text-sm font-semibold px-5 py-2.5 hover:bg-mahogany transition-colors"
+            <a
+              href={`${CARE_APP}/register/owner?return_to=${encodeURIComponent(`${SITE_URL}/onboarding`)}`}
+              className="mt-5 inline-block rounded-full bg-espresso text-ivory text-sm font-semibold px-5 py-2.5 hover:bg-mahogany transition-colors"
             >
-              Sign up as a trainer
-            </Link>
+              Sign up to book training →
+            </a>
+            <p className="mt-3 text-sm text-muted">
+              Already a DogCareGH owner?{" "}
+              <a href={`${CARE_APP}/login`} className="text-gold font-semibold hover:underline">
+                Log in
+              </a>{" "}
+              — you&apos;ll come back here signed in.
+            </p>
+            <p className="mt-6 text-sm text-muted">
+              Are you a dog trainer?{" "}
+              <Link href="/signup" className="text-gold font-semibold hover:underline">
+                Sign up as a trainer
+              </Link>
+            </p>
           </div>
         )}
       </div>
