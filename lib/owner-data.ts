@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
@@ -41,14 +42,27 @@ export type Trainer = {
   score: number; // match score for the current owner
 };
 
-/** Require a signed-in user; otherwise send them home to log in. */
-export async function requireUser() {
+/**
+ * getUser() deduped to ONE call per request. Multiple concurrent getUser()
+ * calls in a single render each create their own auth-js instance and race to
+ * refresh the shared refresh token — one rotates it, the others use the stale
+ * token and Supabase invalidates the whole family, signing the user out
+ * globally. React cache() collapses them to a single call/refresh per request.
+ * (Token refresh itself is persisted by the middleware, which runs first.)
+ */
+export const getServerUser = cache(async () => {
   const supabase = createServerSupabaseClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  return user;
+});
+
+/** Require a signed-in user; otherwise send them home to log in. */
+export async function requireUser() {
+  const user = await getServerUser();
   if (!user) redirect("/");
-  return { supabase, user };
+  return { supabase: createServerSupabaseClient(), user };
 }
 
 export async function getMyOwnerProfile(): Promise<OwnerProfile | null> {

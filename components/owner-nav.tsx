@@ -1,14 +1,11 @@
-import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { getServerUser } from "@/lib/owner-data";
 
 // Plain <a> anchors (full navigation) rather than next/link on purpose: every
 // route here is auth-gated and redirects when logged out, and Next's client
 // router can replay a cached redirect after login ("nothing happens" on click).
 // Full navigations always resolve fresh against the current session.
 export async function OwnerNav() {
-  const supabase = createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getServerUser();
 
   return (
     <header className="border-b border-hairline bg-white/80 backdrop-blur sticky top-0 z-10">
