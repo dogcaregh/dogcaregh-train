@@ -51,6 +51,11 @@ export default async function TrainersPage() {
                     </span>
                   )}
                 </div>
+                {t.review_count > 0 && (
+                  <p className="mt-0.5 text-xs text-walnut">
+                    ★ {t.rating_avg.toFixed(1)} <span className="text-muted">({t.review_count})</span>
+                  </p>
+                )}
                 <p className="mt-1 text-sm text-muted line-clamp-2">{t.bio}</p>
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {t.specialties.slice(0, 3).map((s) => (

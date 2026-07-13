@@ -38,6 +38,8 @@ export type Trainer = {
   years_experience: number | null;
   eval_fee: number;
   vetting_status: string;
+  rating_avg: number;
+  review_count: number;
   programs: Program[];
   fromPrice: number | null; // cheapest program price
   score: number; // match score for the current owner
@@ -119,6 +121,9 @@ function scoreTrainer(t: Omit<Trainer, "score">, p: OwnerProfile | null): number
 
   if (p.budget != null && t.fromPrice != null && t.fromPrice <= p.budget) s += 10;
 
+  // Rating is a modest signal (max +15) so fit still dominates the ranking.
+  if (t.review_count > 0) s += Math.round(t.rating_avg * 3);
+
   return s;
 }
 
@@ -130,7 +135,7 @@ export async function listRankedTrainers(): Promise<Trainer[]> {
   const { data: profiles } = await supabase
     .from("trainer_profiles")
     .select(
-      "id, user_id, bio, specialties, breeds, neighbourhoods, methods, credentials, years_experience, eval_fee, vetting_status, users(name)"
+      "id, user_id, bio, specialties, breeds, neighbourhoods, methods, credentials, years_experience, eval_fee, vetting_status, rating_avg, review_count, users(name)"
     )
     .eq("active", true)
     .eq("vetting_status", "verified");
@@ -172,6 +177,8 @@ export async function listRankedTrainers(): Promise<Trainer[]> {
       years_experience: row.years_experience,
       eval_fee: Number(row.eval_fee),
       vetting_status: row.vetting_status,
+      rating_avg: Number(row.rating_avg ?? 0),
+      review_count: Number(row.review_count ?? 0),
       programs: progs.sort((a, b) => a.price - b.price),
       fromPrice,
     };
@@ -216,6 +223,17 @@ export async function canRebookTrainer(trainerId: string): Promise<boolean> {
   return completedBookingExists(supabase, user.id, trainerId);
 }
 
+/** Public reviews for a trainer (shown anonymously on the profile). */
+export async function getTrainerReviews(trainerId: string) {
+  const { supabase } = await requireUser();
+  const { data } = await supabase
+    .from("trainer_reviews")
+    .select("id, rating, text, created_at")
+    .eq("trainer_id", trainerId)
+    .order("created_at", { ascending: false });
+  return data ?? [];
+}
+
 export type EvaluationRow = {
   id: string;
   trainer_id: string;
@@ -250,7 +268,7 @@ export async function listMyBookings() {
   const { supabase, user } = await requireUser();
   const { data } = await supabase
     .from("trainer_bookings")
-    .select("id, trainer_id, status, sessions_total, gross_amount, created_at, trainer_profiles(users(name)), trainer_sessions(id, status, scheduled_at)")
+    .select("id, trainer_id, status, sessions_total, gross_amount, created_at, trainer_profiles(users(name)), trainer_sessions(id, status, scheduled_at), trainer_reviews(id)")
     .eq("owner_id", user.id)
     .order("created_at", { ascending: false });
   return data ?? [];

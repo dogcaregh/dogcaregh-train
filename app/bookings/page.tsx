@@ -1,5 +1,6 @@
 import { OwnerNav } from "@/components/owner-nav";
 import { listMyBookings, listMyEvaluations, relName } from "@/lib/owner-data";
+import { submitReview } from "@/app/actions";
 import { cedis } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
@@ -18,14 +19,16 @@ const PAID_MSG: Record<string, string> = {
 export default async function BookingsPage({
   searchParams,
 }: {
-  searchParams: { booked?: string; paid?: string };
+  searchParams: { booked?: string; paid?: string; reviewed?: string };
 }) {
   const [evals, bookings] = await Promise.all([listMyEvaluations(), listMyBookings()]);
-  const banner = searchParams.paid
-    ? PAID_MSG[searchParams.paid]
-    : searchParams.booked
-      ? BOOKED_MSG[searchParams.booked]
-      : null;
+  const banner = searchParams.reviewed
+    ? "Thanks — your review is live on the trainer's profile."
+    : searchParams.paid
+      ? PAID_MSG[searchParams.paid]
+      : searchParams.booked
+        ? BOOKED_MSG[searchParams.booked]
+        : null;
   const bannerBad = searchParams.paid === "failed" || searchParams.paid === "mismatch";
 
   return (
@@ -77,6 +80,7 @@ export default async function BookingsPage({
               {bookings.map((b) => {
                 const sessions = (b.trainer_sessions ?? []) as { id: string; status: string }[];
                 const done = sessions.filter((s) => s.status === "completed").length;
+                const reviewed = ((b.trainer_reviews ?? []) as { id: string }[]).length > 0;
                 return (
                   <div key={b.id} className="rounded-xl bg-white border border-hairline p-4">
                     <div className="flex items-center justify-between">
@@ -95,6 +99,27 @@ export default async function BookingsPage({
                         style={{ width: `${b.sessions_total ? (done / b.sessions_total) * 100 : 0}%` }}
                       />
                     </div>
+
+                    {b.status === "closed" && (
+                      reviewed ? (
+                        <p className="mt-3 text-xs text-gold font-semibold">✓ You reviewed this program</p>
+                      ) : (
+                        <form action={submitReview} className="mt-3 border-t border-hairline pt-3">
+                          <input type="hidden" name="booking_id" value={b.id} />
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs font-semibold text-walnut">Rate your trainer</label>
+                            <select name="rating" defaultValue="5" className="rounded-lg border border-hairline bg-ivory px-2 py-1 text-sm text-espresso outline-none focus:border-gold">
+                              {[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{"★".repeat(n)}</option>)}
+                            </select>
+                          </div>
+                          <input name="text" placeholder="How did it go? (optional)"
+                            className="mt-2 w-full rounded-lg border border-hairline bg-ivory px-3 py-2 text-sm text-espresso outline-none focus:border-gold" />
+                          <button className="mt-2 rounded-full bg-walnut text-ivory text-xs font-semibold px-4 py-1.5 hover:bg-mahogany transition-colors">
+                            Submit review
+                          </button>
+                        </form>
+                      )
+                    )}
                   </div>
                 );
               })}

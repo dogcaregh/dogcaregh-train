@@ -485,6 +485,32 @@ export async function markSessionComplete(formData: FormData) {
   redirect("/trainer/bookings");
 }
 
+export async function submitReview(formData: FormData) {
+  const { supabase, user } = await authed();
+  const bookingId = String(formData.get("booking_id"));
+  const rating = Math.max(1, Math.min(5, Number(formData.get("rating") || 0)));
+
+  // Confirm the booking is the owner's and completed (RLS also enforces this).
+  const { data: booking } = await supabase
+    .from("trainer_bookings")
+    .select("id, trainer_id, status")
+    .eq("id", bookingId)
+    .eq("owner_id", user.id)
+    .maybeSingle();
+  if (!booking || booking.status !== "closed") redirect("/bookings");
+
+  await supabase.from("trainer_reviews").insert({
+    booking_id: bookingId,
+    owner_id: user.id,
+    trainer_id: booking.trainer_id,
+    rating,
+    text: String(formData.get("text") ?? "").trim() || null,
+  });
+
+  revalidatePath("/bookings");
+  redirect("/bookings?reviewed=1");
+}
+
 export async function requestCashout(formData: FormData) {
   const { supabase, user } = await authed();
   const trainerId = await myTrainerProfileId(supabase, user.id);

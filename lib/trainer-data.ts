@@ -17,6 +17,8 @@ export type TrainerProfile = {
   eval_fee: number;
   vetting_status: string;
   active: boolean;
+  rating_avg: number;
+  review_count: number;
 };
 
 /** My trainer profile (or null if I haven't created one). Deduped per request. */
@@ -25,7 +27,7 @@ export const getMyTrainerProfile = cache(async (): Promise<TrainerProfile | null
   const { data } = await supabase
     .from("trainer_profiles")
     .select(
-      "id, user_id, bio, specialties, breeds, neighbourhoods, methods, credentials, years_experience, eval_fee, vetting_status, active"
+      "id, user_id, bio, specialties, breeds, neighbourhoods, methods, credentials, years_experience, eval_fee, vetting_status, active, rating_avg, review_count"
     )
     .eq("user_id", user.id)
     .maybeSingle();

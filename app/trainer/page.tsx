@@ -40,6 +40,9 @@ export default async function TrainerDashboard() {
             <p className="mt-1 text-sm text-muted">
               Vetting: <span className="capitalize text-walnut font-semibold">{profile.vetting_status}</span>
               {" · "}Evaluation fee ₵{profile.eval_fee}
+              {profile.review_count > 0 && (
+                <span className="text-walnut"> · ★ {profile.rating_avg.toFixed(1)} ({profile.review_count})</span>
+              )}
             </p>
           </div>
           <a href="/trainer/profile" className="text-sm text-gold font-semibold hover:underline">Edit profile</a>

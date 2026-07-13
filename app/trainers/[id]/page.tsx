@@ -1,16 +1,17 @@
 import { notFound } from "next/navigation";
 import { OwnerNav } from "@/components/owner-nav";
 import { BookingActions } from "@/components/booking-actions";
-import { getTrainer, getMyDogs, getMyOwnerProfile, canRebookTrainer } from "@/lib/owner-data";
+import { getTrainer, getMyDogs, getMyOwnerProfile, canRebookTrainer, getTrainerReviews } from "@/lib/owner-data";
 
 export const dynamic = "force-dynamic";
 
 export default async function TrainerPage({ params }: { params: { id: string } }) {
-  const [t, dogs, profile, canRebook] = await Promise.all([
+  const [t, dogs, profile, canRebook, reviews] = await Promise.all([
     getTrainer(params.id),
     getMyDogs(),
     getMyOwnerProfile(),
     canRebookTrainer(params.id),
+    getTrainerReviews(params.id),
   ]);
   if (!t) notFound();
 
@@ -21,7 +22,12 @@ export default async function TrainerPage({ params }: { params: { id: string } }
         <a href="/trainers" className="text-sm text-gold hover:underline">← All trainers</a>
 
         <h1 className="mt-3 text-3xl text-espresso">{t.name}</h1>
-        <p className="mt-1 text-sm text-muted">{t.neighbourhoods.join(", ")}</p>
+        <p className="mt-1 text-sm text-muted">
+          {t.neighbourhoods.join(", ")}
+          {t.review_count > 0 && (
+            <span className="text-walnut"> · ★ {t.rating_avg.toFixed(1)} ({t.review_count})</span>
+          )}
+        </p>
         {t.bio && <p className="mt-3 text-walnut">{t.bio}</p>}
 
         <div className="mt-4 flex flex-wrap gap-1.5">
@@ -45,6 +51,21 @@ export default async function TrainerPage({ params }: { params: { id: string } }
           defaultDogId={profile?.dog_id ?? null}
           canRebook={canRebook}
         />
+
+        {reviews.length > 0 && (
+          <section className="mt-8">
+            <h2 className="text-xl text-espresso">Reviews</h2>
+            <div className="mt-3 grid gap-3">
+              {reviews.map((r) => (
+                <div key={r.id} className="rounded-xl bg-white border border-hairline p-4">
+                  <p className="text-gold text-sm">{"★".repeat(r.rating)}<span className="text-hairline">{"★".repeat(5 - r.rating)}</span></p>
+                  {r.text && <p className="mt-1 text-sm text-walnut">{r.text}</p>}
+                  <p className="mt-1 text-xs text-muted">A dog owner</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </main>
     </>
   );
