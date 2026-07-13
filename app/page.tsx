@@ -34,15 +34,22 @@ export default async function Home() {
               <p className="mt-1 text-xs text-muted break-all">id: {user.id}</p>
             </div>
             <p className="mt-4 text-sm text-muted">
-              You arrived here already authenticated — no second login. This is
-              the subdomain-SSO proof.
+              You arrived here already authenticated — no second login.
             </p>
             <Link
-              href="/logout"
-              className="mt-6 inline-block text-sm text-gold font-semibold hover:underline"
+              href="/trainers"
+              className="mt-6 inline-block rounded-full bg-espresso text-ivory text-sm font-semibold px-5 py-2.5 hover:bg-mahogany transition-colors"
             >
-              Sign out (clears the shared session on both apps)
+              Find a dog trainer →
             </Link>
+            <div className="mt-4">
+              <Link
+                href="/logout"
+                className="text-sm text-gold font-semibold hover:underline"
+              >
+                Sign out (clears the shared session on both apps)
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="mt-6">
