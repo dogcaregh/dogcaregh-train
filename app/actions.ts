@@ -89,7 +89,7 @@ export async function saveOwnerProfile(formData: FormData) {
   redirect("/trainers");
 }
 
-/** The dog to attach to a new evaluation/booking = the owner's chosen dog. */
+/** The onboarding "primary" dog, used as the default. */
 async function ownerDogId(
   supabase: Awaited<ReturnType<typeof authed>>["supabase"],
   userId: string
@@ -100,6 +100,29 @@ async function ownerDogId(
     .eq("user_id", userId)
     .maybeSingle();
   return data?.dog_id ?? null;
+}
+
+/**
+ * Dog for this booking: the one picked in the form if it belongs to the owner,
+ * else the onboarding default. Ownership is re-checked server-side so a forged
+ * dog_id can't attach someone else's dog.
+ */
+async function resolveDogId(
+  supabase: Awaited<ReturnType<typeof authed>>["supabase"],
+  userId: string,
+  picked: FormDataEntryValue | null
+): Promise<string | null> {
+  const candidate = String(picked ?? "").trim();
+  if (candidate) {
+    const { data } = await supabase
+      .from("dogs")
+      .select("id")
+      .eq("id", candidate)
+      .eq("owner_id", userId)
+      .maybeSingle();
+    if (data) return data.id;
+  }
+  return ownerDogId(supabase, userId);
 }
 
 export async function bookEvaluation(formData: FormData) {
@@ -114,8 +137,8 @@ export async function bookEvaluation(formData: FormData) {
     .maybeSingle();
   if (!tp) redirect("/trainers");
 
-  // Bookings are per-dog. Require the owner to have chosen a dog first.
-  const dogId = await ownerDogId(supabase, user.id);
+  // Bookings are per-dog. Use the picked dog (ownership re-checked) or default.
+  const dogId = await resolveDogId(supabase, user.id, formData.get("dog_id"));
   if (!dogId) redirect(`/dogs?next=${encodeURIComponent(`/trainers/${trainerId}`)}`);
 
   // Payment is Phase 4 — the evaluation is created as 'requested' (unpaid).
@@ -148,7 +171,7 @@ export async function rebookProgram(formData: FormData) {
     .maybeSingle();
   if (!prog) redirect("/trainers");
 
-  const dogId = await ownerDogId(supabase, user.id);
+  const dogId = await resolveDogId(supabase, user.id, formData.get("dog_id"));
   if (!dogId) redirect(`/dogs?next=${encodeURIComponent(`/trainers/${prog.trainer_id}`)}`);
 
   const total = programTotal(Number(prog.price), prog.sessions_per_week, prog.weeks, Number(prog.discount));
