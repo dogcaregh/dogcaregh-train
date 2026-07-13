@@ -54,7 +54,9 @@ export const getServerUser = cache(async () => {
   const supabase = createServerSupabaseClient();
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser();
+  console.log(`[DIAG page] getUser user=${user?.id ?? "null"} err=${error?.message ?? "none"}`);
   return user;
 });
 
