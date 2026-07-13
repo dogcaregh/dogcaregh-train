@@ -186,6 +186,36 @@ export async function getTrainer(id: string): Promise<Trainer | null> {
   return all.find((t) => t.id === id) ?? null;
 }
 
+type ServerClient = ReturnType<typeof createServerSupabaseClient>;
+
+/**
+ * True once the owner has a *completed* program with this trainer — every
+ * session done, or the booking closed. Gates direct rebooking (returning
+ * owners only); a first program must start with an evaluation.
+ */
+export async function completedBookingExists(
+  supabase: ServerClient,
+  userId: string,
+  trainerId: string
+): Promise<boolean> {
+  const { data } = await supabase
+    .from("trainer_bookings")
+    .select("sessions_total, status, trainer_sessions(status)")
+    .eq("owner_id", userId)
+    .eq("trainer_id", trainerId);
+  return (data ?? []).some((b) => {
+    if (b.status === "closed") return true;
+    const sessions = (b.trainer_sessions ?? []) as { status: string }[];
+    const done = sessions.filter((s) => s.status === "completed").length;
+    return b.sessions_total > 0 && done >= b.sessions_total;
+  });
+}
+
+export async function canRebookTrainer(trainerId: string): Promise<boolean> {
+  const { supabase, user } = await requireUser();
+  return completedBookingExists(supabase, user.id, trainerId);
+}
+
 export type EvaluationRow = {
   id: string;
   trainer_id: string;

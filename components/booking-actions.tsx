@@ -22,6 +22,7 @@ export function BookingActions({
   programs,
   dogs,
   defaultDogId,
+  canRebook,
 }: {
   trainerId: string;
   trainerName: string;
@@ -29,6 +30,7 @@ export function BookingActions({
   programs: Program[];
   dogs: Dog[];
   defaultDogId: string | null;
+  canRebook: boolean;
 }) {
   const [dogId, setDogId] = useState(defaultDogId ?? dogs[0]?.id ?? "");
 
@@ -106,7 +108,9 @@ export function BookingActions({
       <section className="mt-8">
         <h2 className="text-xl text-espresso">Programs &amp; pricing</h2>
         <p className="mt-1 text-xs text-muted">
-          Returning owners can rebook a program directly. New programs normally start with an evaluation.
+          {canRebook
+            ? "You've trained with this trainer — rebook any program directly."
+            : "Direct rebooking unlocks after you complete a program with this trainer. New programs start with an evaluation."}
         </p>
         <div className="mt-4 grid gap-3">
           {programs.map((p) => {
@@ -126,7 +130,11 @@ export function BookingActions({
                 <form action={rebookProgram} className="mt-3">
                   <input type="hidden" name="program_id" value={p.id} />
                   <input type="hidden" name="dog_id" value={dogId} />
-                  <button className="rounded-full bg-walnut text-ivory text-xs font-semibold px-4 py-2 hover:bg-mahogany transition-colors">
+                  <button
+                    disabled={!canRebook}
+                    title={canRebook ? undefined : "Complete a program with this trainer to rebook directly"}
+                    className="rounded-full bg-walnut text-ivory text-xs font-semibold px-4 py-2 hover:bg-mahogany transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-walnut"
+                  >
                     Rebook directly
                   </button>
                 </form>

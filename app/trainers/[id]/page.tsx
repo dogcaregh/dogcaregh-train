@@ -1,15 +1,16 @@
 import { notFound } from "next/navigation";
 import { OwnerNav } from "@/components/owner-nav";
 import { BookingActions } from "@/components/booking-actions";
-import { getTrainer, getMyDogs, getMyOwnerProfile } from "@/lib/owner-data";
+import { getTrainer, getMyDogs, getMyOwnerProfile, canRebookTrainer } from "@/lib/owner-data";
 
 export const dynamic = "force-dynamic";
 
 export default async function TrainerPage({ params }: { params: { id: string } }) {
-  const [t, dogs, profile] = await Promise.all([
+  const [t, dogs, profile, canRebook] = await Promise.all([
     getTrainer(params.id),
     getMyDogs(),
     getMyOwnerProfile(),
+    canRebookTrainer(params.id),
   ]);
   if (!t) notFound();
 
@@ -42,6 +43,7 @@ export default async function TrainerPage({ params }: { params: { id: string } }
           programs={t.programs}
           dogs={dogs}
           defaultDogId={profile?.dog_id ?? null}
+          canRebook={canRebook}
         />
       </main>
     </>

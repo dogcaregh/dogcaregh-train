@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { completedBookingExists } from "@/lib/owner-data";
 import { programTotal, totalSessions } from "@/lib/pricing";
 
 // Sign-out MUST be a POST action, never a GET route: a GET /logout can be
@@ -170,6 +171,12 @@ export async function rebookProgram(formData: FormData) {
     .eq("id", programId)
     .maybeSingle();
   if (!prog) redirect("/trainers");
+
+  // Evaluation-first: direct rebooking is only for owners who've completed a
+  // program with this trainer. Enforced here, not just via the disabled button.
+  if (!(await completedBookingExists(supabase, user.id, prog.trainer_id))) {
+    redirect(`/trainers/${prog.trainer_id}`);
+  }
 
   const dogId = await resolveDogId(supabase, user.id, formData.get("dog_id"));
   if (!dogId) redirect(`/dogs?next=${encodeURIComponent(`/trainers/${prog.trainer_id}`)}`);
