@@ -38,6 +38,7 @@ export default async function Home() {
             </p>
             <Link
               href="/trainers"
+              prefetch={false}
               className="mt-6 inline-block rounded-full bg-espresso text-ivory text-sm font-semibold px-5 py-2.5 hover:bg-mahogany transition-colors"
             >
               Find a dog trainer →
