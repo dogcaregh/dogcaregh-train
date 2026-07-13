@@ -309,32 +309,51 @@ export async function saveTrainerProfile(formData: FormData) {
   const { supabase, user } = await authed();
   const evalFee = Math.max(300, Number(formData.get("eval_fee") || 300)); // DB floor is ₵300
 
-  await supabase.from("trainer_profiles").upsert(
-    {
-      user_id: user.id,
-      bio: String(formData.get("bio") ?? "").trim() || null,
-      specialties: splitList(formData.get("specialties")),
-      breeds: splitList(formData.get("breeds")),
-      neighbourhoods: splitList(formData.get("neighbourhoods")),
-      methods: String(formData.get("methods") ?? "").trim() || null,
-      credentials: String(formData.get("credentials") ?? "").trim() || null,
-      years_experience: formData.get("years_experience")
-        ? Number(formData.get("years_experience"))
-        : null,
-      eval_fee: evalFee,
-      // TODO: real vetting is admin-approved. Auto-verify in preview so the
-      // trainer is discoverable end-to-end for testing.
-      vetting_status: "verified",
-      active: true,
-    },
-    { onConflict: "user_id" }
-  );
+  const base = {
+    user_id: user.id,
+    bio: String(formData.get("bio") ?? "").trim() || null,
+    specialties: splitList(formData.get("specialties")),
+    breeds: splitList(formData.get("breeds")),
+    neighbourhoods: splitList(formData.get("neighbourhoods")),
+    methods: String(formData.get("methods") ?? "").trim() || null,
+    credentials: String(formData.get("credentials") ?? "").trim() || null,
+    years_experience: formData.get("years_experience") ? Number(formData.get("years_experience")) : null,
+    eval_fee: evalFee,
+    active: true,
+  };
+
+  // New trainers start 'pending' (admin approves). Editing an existing profile
+  // must NOT reset vetting_status — so only set it on first create.
+  const existing = await myTrainerProfileId(supabase, user.id);
+  if (existing) {
+    await supabase.from("trainer_profiles").update(base).eq("user_id", user.id);
+  } else {
+    await supabase.from("trainer_profiles").insert({ ...base, vetting_status: "pending" });
+  }
 
   // One account can be both owner and trainer.
   await supabase.from("users").update({ is_trainer: true }).eq("id", user.id);
 
   revalidatePath("/trainer");
   redirect("/trainer");
+}
+
+/** Admin-only: set a trainer's vetting status. Role re-checked server-side. */
+export async function setTrainerVetting(formData: FormData) {
+  const { supabase, user } = await authed();
+  const { data: me } = await supabase.from("users").select("role").eq("id", user.id).maybeSingle();
+  if (me?.role !== "admin") redirect("/");
+
+  const status = String(formData.get("status"));
+  if (!["verified", "rejected", "pending"].includes(status)) redirect("/admin/trainers");
+
+  await supabase
+    .from("trainer_profiles")
+    .update({ vetting_status: status })
+    .eq("id", String(formData.get("trainer_id")));
+
+  revalidatePath("/admin/trainers");
+  redirect("/admin/trainers");
 }
 
 export async function saveProgram(formData: FormData) {

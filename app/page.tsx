@@ -2,6 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { signOutAction } from "@/app/actions";
+import { isAdmin } from "@/lib/admin";
 
 // Always read the live session — never statically cache this page.
 export const dynamic = "force-dynamic";
@@ -18,6 +19,7 @@ export default async function Home() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const admin = user ? await isAdmin() : false;
 
   return (
     <main className="min-h-screen flex items-center justify-center px-6 py-16">
@@ -54,6 +56,13 @@ export default async function Home() {
                 I&apos;m a trainer →
               </a>
             </div>
+            {admin && (
+              <div className="mt-3">
+                <a href="/admin/trainers" className="text-sm text-gold font-semibold hover:underline">
+                  Admin · trainer vetting →
+                </a>
+              </div>
+            )}
             <form action={signOutAction} className="mt-4">
               <button
                 type="submit"
