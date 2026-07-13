@@ -2,9 +2,33 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { completedBookingExists } from "@/lib/owner-data";
-import { programTotal, totalSessions } from "@/lib/pricing";
+import { trainerEarnings } from "@/lib/trainer-data";
+import { programTotal, totalSessions, splitAmount } from "@/lib/pricing";
+import { paystackEnabled, initTransaction } from "@/lib/paystack";
+
+// Start Paystack checkout for a record. Returns the hosted-checkout URL, or
+// null when Paystack isn't configured yet (env-gated stub keeps the preview
+// flow working until PAYSTACK_SECRET_KEY is set).
+async function beginCheckout(
+  kind: "evaluation" | "booking",
+  recordId: string,
+  amountGhs: number,
+  email: string
+): Promise<string | null> {
+  if (!paystackEnabled()) return null;
+  const host = headers().get("host");
+  const base = host ? `https://${host}` : process.env.NEXT_PUBLIC_SITE_URL ?? "https://train.dogcaregh.com";
+  return initTransaction({
+    email,
+    amountGhs,
+    reference: `dogtrain_${kind}_${recordId}_${Date.now()}`,
+    callbackUrl: `${base}/payment/callback`,
+    metadata: { kind, id: recordId },
+  });
+}
 
 // Sign-out MUST be a POST action, never a GET route: a GET /logout can be
 // prefetched by Next.js <Link>, hit by browsers/crawlers, etc., silently
@@ -142,16 +166,31 @@ export async function bookEvaluation(formData: FormData) {
   const dogId = await resolveDogId(supabase, user.id, formData.get("dog_id"));
   if (!dogId) redirect(`/dogs?next=${encodeURIComponent(`/trainers/${trainerId}`)}`);
 
-  // Payment is Phase 4 — the evaluation is created as 'requested' (unpaid).
-  await supabase.from("trainer_evaluations").insert({
-    owner_id: user.id,
-    trainer_id: trainerId,
-    program_id: programId,
-    dog_id: dogId,
-    fee: Number(tp.eval_fee),
-    status: "requested",
-  });
+  const fee = Number(tp.eval_fee);
+  const { payout } = splitAmount(fee);
+  const { data: ev } = await supabase
+    .from("trainer_evaluations")
+    .insert({
+      owner_id: user.id,
+      trainer_id: trainerId,
+      program_id: programId,
+      dog_id: dogId,
+      fee,
+      trainer_payout: payout,
+      status: "requested",
+    })
+    .select("id")
+    .single();
+  if (!ev) redirect("/trainers");
 
+  const url = await beginCheckout("evaluation", ev.id, fee, user.email ?? "");
+  if (url) redirect(url); // → Paystack; the callback marks it paid
+
+  // No Paystack key yet → treat as paid so the flow stays testable.
+  await supabase
+    .from("trainer_evaluations")
+    .update({ paid_at: new Date().toISOString(), payment_ref: `stub_${ev.id}` })
+    .eq("id", ev.id);
   revalidatePath("/bookings");
   redirect("/bookings?booked=eval");
 }
@@ -184,7 +223,7 @@ export async function rebookProgram(formData: FormData) {
   const total = programTotal(Number(prog.price), prog.sessions_per_week, prog.weeks, Number(prog.discount));
   const count = totalSessions(prog.sessions_per_week, prog.weeks);
 
-  await createBookingWithSessions(supabase, {
+  const booking = await createBookingWithSessions(supabase, {
     ownerId: user.id,
     trainerId: prog.trainer_id,
     programId: prog.id,
@@ -193,7 +232,12 @@ export async function rebookProgram(formData: FormData) {
     sessionsTotal: count,
     gross: total,
   });
+  if (!booking) redirect("/trainers");
 
+  const url = await beginCheckout("booking", booking.id, booking.gross, user.email ?? "");
+  if (url) redirect(url);
+
+  await markBookingPaidStub(supabase, booking.id);
   revalidatePath("/bookings");
   redirect("/bookings?booked=program");
 }
@@ -219,7 +263,7 @@ export async function acceptRecommendation(formData: FormData) {
   const total = programTotal(Number(rec.price), rec.sessions_per_week, rec.weeks, Number(rec.discount));
   const count = totalSessions(rec.sessions_per_week, rec.weeks);
 
-  await createBookingWithSessions(supabase, {
+  const booking = await createBookingWithSessions(supabase, {
     ownerId: user.id,
     trainerId: rec.trainer_id,
     programId: null,
@@ -228,9 +272,14 @@ export async function acceptRecommendation(formData: FormData) {
     sessionsTotal: count,
     gross: total,
   });
+  if (!booking) redirect("/recommendations");
 
   await supabase.from("trainer_recommendations").update({ status: "accepted" }).eq("id", rec.id);
 
+  const url = await beginCheckout("booking", booking.id, booking.gross, user.email ?? "");
+  if (url) redirect(url);
+
+  await markBookingPaidStub(supabase, booking.id);
   revalidatePath("/bookings");
   redirect("/bookings?booked=recommendation");
 }
@@ -401,12 +450,58 @@ export async function sendRecommendation(formData: FormData) {
 
 export async function markSessionComplete(formData: FormData) {
   const { supabase } = await authed();
-  await supabase
+  const sessionId = String(formData.get("session_id"));
+
+  const { data: s } = await supabase
     .from("trainer_sessions")
-    .update({ status: "completed", released_at: new Date().toISOString() })
-    .eq("id", String(formData.get("session_id")));
+    .select("id, booking_id, trainer_bookings(status, sessions_total)")
+    .eq("id", sessionId)
+    .maybeSingle();
+  const bk = s?.trainer_bookings as
+    | { status: string; sessions_total: number }
+    | { status: string; sessions_total: number }[]
+    | null;
+  const booking = Array.isArray(bk) ? bk[0] : bk;
+  // Escrow: only release a session once the program is actually paid.
+  const payable = booking && !["pending", "cancelled"].includes(booking.status);
+  if (s && payable) {
+    await supabase
+      .from("trainer_sessions")
+      .update({ status: "completed", released_at: new Date().toISOString() })
+      .eq("id", sessionId);
+
+    // When every session is complete, close the booking (completed program).
+    const { data: sessions } = await supabase
+      .from("trainer_sessions")
+      .select("status")
+      .eq("booking_id", s.booking_id);
+    const done = (sessions ?? []).filter((x) => x.status === "completed").length;
+    if (booking && done >= booking.sessions_total) {
+      await supabase.from("trainer_bookings").update({ status: "closed" }).eq("id", s.booking_id);
+    }
+  }
+
   revalidatePath("/trainer/bookings");
   redirect("/trainer/bookings");
+}
+
+export async function requestCashout(formData: FormData) {
+  const { supabase, user } = await authed();
+  const trainerId = await myTrainerProfileId(supabase, user.id);
+  if (!trainerId) redirect("/trainer/profile");
+
+  const amount = Number(formData.get("amount") || 0);
+  const { available } = await trainerEarnings(supabase, trainerId);
+  if (amount <= 0 || amount > available) redirect("/trainer/earnings?err=amount");
+
+  await supabase.from("trainer_cashout_requests").insert({
+    trainer_id: trainerId,
+    amount,
+    momo_network: String(formData.get("momo_network") ?? "").trim(),
+    momo_number: String(formData.get("momo_number") ?? "").trim(),
+  });
+  revalidatePath("/trainer/earnings");
+  redirect("/trainer/earnings?requested=1");
 }
 
 type BookingArgs = {
@@ -422,7 +517,8 @@ type BookingArgs = {
 async function createBookingWithSessions(
   supabase: Awaited<ReturnType<typeof authed>>["supabase"],
   a: BookingArgs
-) {
+): Promise<{ id: string; gross: number } | null> {
+  const { commission, payout } = splitAmount(a.gross);
   const { data: booking } = await supabase
     .from("trainer_bookings")
     .insert({
@@ -431,20 +527,36 @@ async function createBookingWithSessions(
       program_id: a.programId,
       recommendation_id: a.recommendationId,
       dog_id: a.dogId,
-      status: "pending", // payment (Phase 4) will move this to 'paid'
+      status: "pending", // moves to 'paid' after checkout (or stub)
       sessions_total: a.sessionsTotal,
       gross_amount: a.gross,
+      commission_amount: commission,
+      trainer_payout: payout,
     })
     .select("id")
     .single();
 
-  if (!booking) return;
+  if (!booking) return null;
 
-  const perSession = Math.round((a.gross / Math.max(a.sessionsTotal, 1)) * 100) / 100;
+  // release_amount is the trainer's NET per session (after 15% commission);
+  // it accrues to the trainer's balance when the session is marked complete.
+  const perSession = Math.round((payout / Math.max(a.sessionsTotal, 1)) * 100) / 100;
   const rows = Array.from({ length: a.sessionsTotal }, () => ({
     booking_id: booking.id,
     status: "scheduled" as const,
     release_amount: perSession,
   }));
   await supabase.from("trainer_sessions").insert(rows);
+  return { id: booking.id, gross: a.gross };
+}
+
+/** Mark a booking paid without Paystack (env-gated stub). */
+async function markBookingPaidStub(
+  supabase: Awaited<ReturnType<typeof authed>>["supabase"],
+  bookingId: string
+) {
+  await supabase
+    .from("trainer_bookings")
+    .update({ status: "paid", paid_at: new Date().toISOString(), payment_ref: `stub_${bookingId}` })
+    .eq("id", bookingId);
 }

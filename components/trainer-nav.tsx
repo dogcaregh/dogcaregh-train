@@ -14,6 +14,7 @@ export async function TrainerNav() {
           <a href="/trainer/leads" className="text-walnut hover:text-espresso">Leads</a>
           <a href="/trainer/programs" className="text-walnut hover:text-espresso">Programs</a>
           <a href="/trainer/bookings" className="text-walnut hover:text-espresso">Clients</a>
+          <a href="/trainer/earnings" className="text-walnut hover:text-espresso">Earnings</a>
           <a href="/trainer/profile" className="text-walnut hover:text-espresso">Profile</a>
           {user && <span className="hidden sm:inline text-xs text-muted">{user.email}</span>}
           <form action={signOutAction}>

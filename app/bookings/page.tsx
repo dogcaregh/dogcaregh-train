@@ -5,18 +5,28 @@ import { cedis } from "@/lib/pricing";
 export const dynamic = "force-dynamic";
 
 const BOOKED_MSG: Record<string, string> = {
-  eval: "Evaluation requested — you'll be able to pay once the trainer confirms.",
-  program: "Program booked. Payment will be collected in the next step.",
-  recommendation: "Recommendation accepted and booked.",
+  eval: "Evaluation booked and paid.",
+  program: "Program booked and paid.",
+  recommendation: "Recommendation accepted and paid.",
+};
+const PAID_MSG: Record<string, string> = {
+  "1": "Payment successful — you're all set.",
+  failed: "Payment wasn't completed. You can try again from the trainer's page.",
+  mismatch: "Payment amount didn't match — nothing was charged to your booking.",
 };
 
 export default async function BookingsPage({
   searchParams,
 }: {
-  searchParams: { booked?: string };
+  searchParams: { booked?: string; paid?: string };
 }) {
   const [evals, bookings] = await Promise.all([listMyEvaluations(), listMyBookings()]);
-  const banner = searchParams.booked ? BOOKED_MSG[searchParams.booked] : null;
+  const banner = searchParams.paid
+    ? PAID_MSG[searchParams.paid]
+    : searchParams.booked
+      ? BOOKED_MSG[searchParams.booked]
+      : null;
+  const bannerBad = searchParams.paid === "failed" || searchParams.paid === "mismatch";
 
   return (
     <>
@@ -25,8 +35,12 @@ export default async function BookingsPage({
         <h1 className="text-3xl text-espresso">My bookings</h1>
 
         {banner && (
-          <div className="mt-4 rounded-xl bg-[rgba(185,138,50,0.10)] border border-gold/40 p-4 text-sm text-walnut">
-            ✓ {banner}
+          <div className={`mt-4 rounded-xl border p-4 text-sm ${
+            bannerBad
+              ? "border-red-200 bg-red-50 text-red-700"
+              : "border-gold/40 bg-[rgba(185,138,50,0.10)] text-walnut"
+          }`}>
+            {bannerBad ? "" : "✓ "}{banner}
           </div>
         )}
 

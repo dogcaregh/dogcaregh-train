@@ -19,3 +19,13 @@ export function totalSessions(sessionsPerWeek: number, weeks: number): number {
 export function cedis(n: number): string {
   return "₵" + n.toLocaleString("en-GH", { maximumFractionDigits: 2 });
 }
+
+// Platform commission (Phase 4 decision): 15% on everything.
+export const COMMISSION_RATE = 0.15;
+
+/** Split a gross amount into platform commission + trainer payout (net). */
+export function splitAmount(gross: number): { commission: number; payout: number } {
+  const commission = Math.round(gross * COMMISSION_RATE * 100) / 100;
+  const payout = Math.round((gross - commission) * 100) / 100;
+  return { commission, payout };
+}

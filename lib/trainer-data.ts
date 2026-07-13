@@ -1,5 +1,8 @@
 import { cache } from "react";
 import { requireUser } from "@/lib/owner-data";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
+
+type SC = ReturnType<typeof createServerSupabaseClient>;
 
 export type TrainerProfile = {
   id: string;
@@ -68,6 +71,7 @@ export async function getMyLeads(): Promise<Lead[]> {
     .from("trainer_evaluations")
     .select("id, owner_id, program_id, dog_id, fee, status, scheduled_at, created_at")
     .eq("trainer_id", profile.id)
+    .not("paid_at", "is", null) // only surface paid evaluations
     .order("created_at", { ascending: false });
   if (!evals || evals.length === 0) return [];
 
@@ -112,6 +116,66 @@ export async function getMyLeads(): Promise<Lead[]> {
       hasRecommendation: recoEvalIds.has(e.id),
     };
   });
+}
+
+export type Earnings = { earned: number; pending: number; available: number };
+
+/** Trainer's money: released (net) session amounts + completed paid eval
+ *  payouts, minus already-requested/paid cash-outs. */
+export async function trainerEarnings(supabase: SC, trainerId: string): Promise<Earnings> {
+  const round = (n: number) => Math.round(n * 100) / 100;
+
+  const [{ data: bookings }, { data: evals }, { data: cashouts }] = await Promise.all([
+    supabase
+      .from("trainer_bookings")
+      .select("trainer_sessions(release_amount, released_at)")
+      .eq("trainer_id", trainerId),
+    supabase
+      .from("trainer_evaluations")
+      .select("trainer_payout")
+      .eq("trainer_id", trainerId)
+      .eq("status", "completed")
+      .not("paid_at", "is", null),
+    supabase
+      .from("trainer_cashout_requests")
+      .select("amount, status")
+      .eq("trainer_id", trainerId),
+  ]);
+
+  let earned = 0;
+  for (const b of bookings ?? []) {
+    const sessions = (b.trainer_sessions ?? []) as { release_amount: number; released_at: string | null }[];
+    for (const s of sessions) if (s.released_at) earned += Number(s.release_amount);
+  }
+  for (const e of evals ?? []) earned += Number(e.trainer_payout);
+
+  let reserved = 0;
+  let pending = 0;
+  for (const c of cashouts ?? []) {
+    if (c.status === "pending" || c.status === "paid") reserved += Number(c.amount);
+    if (c.status === "pending") pending += Number(c.amount);
+  }
+
+  return { earned: round(earned), pending: round(pending), available: round(earned - reserved) };
+}
+
+export async function getMyEarnings(): Promise<Earnings> {
+  const profile = await getMyTrainerProfile();
+  if (!profile) return { earned: 0, pending: 0, available: 0 };
+  const { supabase } = await requireUser();
+  return trainerEarnings(supabase, profile.id);
+}
+
+export async function getMyCashouts() {
+  const profile = await getMyTrainerProfile();
+  if (!profile) return [];
+  const { supabase } = await requireUser();
+  const { data } = await supabase
+    .from("trainer_cashout_requests")
+    .select("id, amount, momo_network, momo_number, status, created_at")
+    .eq("trainer_id", profile.id)
+    .order("created_at", { ascending: false });
+  return data ?? [];
 }
 
 export async function getMyTrainerBookings() {
