@@ -40,6 +40,8 @@ export type Trainer = {
   vetting_status: string;
   rating_avg: number;
   review_count: number;
+  avatar_url: string | null;
+  gallery_photos: string[];
   programs: Program[];
   fromPrice: number | null; // cheapest program price
   score: number; // match score for the current owner
@@ -135,7 +137,7 @@ export async function listRankedTrainers(): Promise<Trainer[]> {
   const { data: profiles } = await supabase
     .from("trainer_profiles")
     .select(
-      "id, user_id, bio, specialties, breeds, neighbourhoods, methods, credentials, years_experience, eval_fee, vetting_status, rating_avg, review_count, users(name)"
+      "id, user_id, bio, specialties, breeds, neighbourhoods, methods, credentials, years_experience, eval_fee, vetting_status, rating_avg, review_count, avatar_url, gallery_photos, users(name)"
     )
     .eq("active", true)
     .eq("vetting_status", "verified");
@@ -179,6 +181,8 @@ export async function listRankedTrainers(): Promise<Trainer[]> {
       vetting_status: row.vetting_status,
       rating_avg: Number(row.rating_avg ?? 0),
       review_count: Number(row.review_count ?? 0),
+      avatar_url: (row.avatar_url as string | null) ?? null,
+      gallery_photos: (row.gallery_photos as string[] | null) ?? [],
       programs: progs.sort((a, b) => a.price - b.price),
       fromPrice,
     };

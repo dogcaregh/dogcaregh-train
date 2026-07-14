@@ -44,7 +44,13 @@ export default async function TrainersPage() {
                 className="block rounded-2xl bg-white border border-hairline p-5 hover:border-gold transition-colors"
               >
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl text-espresso">{t.name}</h2>
+                  <div className="flex items-center gap-2.5">
+                    {t.avatar_url && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={t.avatar_url} alt={t.name} className="h-9 w-9 shrink-0 rounded-full object-cover border border-hairline" />
+                    )}
+                    <h2 className="text-xl text-espresso">{t.name}</h2>
+                  </div>
                   {i === 0 && profile && t.score > 0 && (
                     <span className="text-[10px] uppercase tracking-wide font-semibold text-gold bg-cream border border-hairline rounded-full px-2 py-0.5">
                       Top match

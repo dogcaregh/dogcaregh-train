@@ -1,4 +1,5 @@
 import { TrainerNav } from "@/components/trainer-nav";
+import { TrainerPhotos } from "@/components/trainer-photos";
 import { getMyTrainerProfile } from "@/lib/trainer-data";
 import { saveTrainerProfile } from "@/app/actions";
 
@@ -33,6 +34,14 @@ export default async function TrainerProfilePage() {
             {p ? "Save profile" : "Create profile"}
           </button>
         </form>
+
+        {p ? (
+          <div className="mt-6">
+            <TrainerPhotos userId={p.user_id} avatarUrl={p.avatar_url} gallery={p.gallery_photos ?? []} />
+          </div>
+        ) : (
+          <p className="mt-4 text-xs text-muted">You&apos;ll be able to add photos once your profile is created.</p>
+        )}
       </main>
     </>
   );

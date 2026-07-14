@@ -21,14 +21,31 @@ export default async function TrainerPage({ params }: { params: { id: string } }
       <main className="mx-auto max-w-3xl px-5 py-8">
         <a href="/trainers" className="text-sm text-gold hover:underline">← All trainers</a>
 
-        <h1 className="mt-3 text-3xl text-espresso">{t.name}</h1>
-        <p className="mt-1 text-sm text-muted">
-          {t.neighbourhoods.join(", ")}
-          {t.review_count > 0 && (
-            <span className="text-walnut"> · ★ {t.rating_avg.toFixed(1)} ({t.review_count})</span>
+        <div className="mt-3 flex items-center gap-4">
+          {t.avatar_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={t.avatar_url} alt={t.name} className="h-16 w-16 shrink-0 rounded-full object-cover border border-hairline" />
           )}
-        </p>
+          <div>
+            <h1 className="text-3xl text-espresso">{t.name}</h1>
+            <p className="mt-1 text-sm text-muted">
+              {t.neighbourhoods.join(", ")}
+              {t.review_count > 0 && (
+                <span className="text-walnut"> · ★ {t.rating_avg.toFixed(1)} ({t.review_count})</span>
+              )}
+            </p>
+          </div>
+        </div>
         {t.bio && <p className="mt-3 text-walnut">{t.bio}</p>}
+
+        {t.gallery_photos.length > 0 && (
+          <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
+            {t.gallery_photos.map((url) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={url} src={url} alt="Trainer gallery" className="h-24 w-full rounded-lg object-cover border border-hairline" />
+            ))}
+          </div>
+        )}
 
         <div className="mt-4 flex flex-wrap gap-1.5">
           {t.specialties.map((s) => (
