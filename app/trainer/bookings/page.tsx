@@ -46,7 +46,7 @@ export default async function TrainerBookingsPage() {
         ) : (
           <div className="mt-6 space-y-4">
             {bookings.map((b) => {
-              const sessions = ((b.trainer_sessions ?? []) as Session[]).slice().sort(bySeq);
+              const sessions = ((b.trainer_sessions ?? []) as unknown as Session[]).slice().sort(bySeq);
               const done = sessions.filter((s) => s.status === "completed").length;
               const upcoming = sessions
                 .filter((s) => s.status !== "completed" && s.scheduled_at && new Date(s.scheduled_at) >= new Date())

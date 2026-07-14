@@ -783,7 +783,13 @@ async function createBookingWithSessions(
     status: "scheduled" as const,
     release_amount: perSession,
   }));
-  await supabase.from("trainer_sessions").insert(rows);
+  const { error } = await supabase.from("trainer_sessions").insert(rows);
+  // Fall back without seq if the migration hasn't been applied yet.
+  if (error) {
+    await supabase
+      .from("trainer_sessions")
+      .insert(rows.map((r) => ({ booking_id: r.booking_id, status: r.status, release_amount: r.release_amount })));
+  }
   return { id: booking.id, gross: a.gross };
 }
 

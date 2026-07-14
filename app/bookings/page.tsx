@@ -88,7 +88,7 @@ export default async function BookingsPage({
           ) : (
             <div className="mt-3 grid gap-3">
               {bookings.map((b) => {
-                const sessions = (b.trainer_sessions ?? []) as Sess[];
+                const sessions = (b.trainer_sessions ?? []) as unknown as Sess[];
                 const done = sessions.filter((s) => s.status === "completed").length;
                 const reviewed = ((b.trainer_reviews ?? []) as { id: string }[]).length > 0;
                 const next = sessions

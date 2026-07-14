@@ -187,11 +187,23 @@ export async function getMyTrainerBookings() {
   if (!profile) return [];
   const { supabase } = await requireUser();
 
-  const { data: bookings } = await supabase
+  // Prefer the seq column; fall back if the migration hasn't been applied yet.
+  // (Two static selects — Supabase parses the select string at compile time.)
+  const withSeq = await supabase
     .from("trainer_bookings")
     .select("id, owner_id, status, sessions_total, gross_amount, created_at, trainer_sessions(id, seq, status, scheduled_at, release_amount)")
     .eq("trainer_id", profile.id)
     .order("created_at", { ascending: false });
+  const noSeq = withSeq.error
+    ? await supabase
+        .from("trainer_bookings")
+        .select("id, owner_id, status, sessions_total, gross_amount, created_at, trainer_sessions(id, status, scheduled_at, release_amount)")
+        .eq("trainer_id", profile.id)
+        .order("created_at", { ascending: false })
+    : null;
+  const bookings = (withSeq.error ? noSeq!.data : withSeq.data) as
+    | { id: string; owner_id: string; status: string; sessions_total: number; gross_amount: number; created_at: string; trainer_sessions: unknown }[]
+    | null;
   if (!bookings || bookings.length === 0) return [];
 
   const ownerIds = [...new Set(bookings.map((b) => b.owner_id))];

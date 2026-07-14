@@ -283,12 +283,20 @@ export async function listMyRecommendations() {
 
 export async function listMyBookings() {
   const { supabase, user } = await requireUser();
-  const { data } = await supabase
+  // Prefer the seq column; fall back if the migration hasn't been applied yet.
+  // (Two static selects — Supabase parses the select string at compile time.)
+  const withSeq = await supabase
     .from("trainer_bookings")
     .select("id, trainer_id, status, sessions_total, gross_amount, created_at, trainer_profiles(users(name)), trainer_sessions(id, seq, status, scheduled_at), trainer_reviews(id), trainer_recommendations(name, description, sessions_per_week, weeks, price, discount, note, is_custom), trainer_programs(name, description, sessions_per_week, weeks, price, discount)")
     .eq("owner_id", user.id)
     .order("created_at", { ascending: false });
-  return data ?? [];
+  if (!withSeq.error) return withSeq.data ?? [];
+  const fb = await supabase
+    .from("trainer_bookings")
+    .select("id, trainer_id, status, sessions_total, gross_amount, created_at, trainer_profiles(users(name)), trainer_sessions(id, status, scheduled_at), trainer_reviews(id), trainer_recommendations(name, description, sessions_per_week, weeks, price, discount, note, is_custom), trainer_programs(name, description, sessions_per_week, weeks, price, discount)")
+    .eq("owner_id", user.id)
+    .order("created_at", { ascending: false });
+  return fb.data ?? [];
 }
 
 /** Small helper for the joined trainer name shape Supabase returns. */
