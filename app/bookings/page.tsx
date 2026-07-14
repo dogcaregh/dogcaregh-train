@@ -130,9 +130,35 @@ export default async function BookingsPage({
                     </div>
                     {next && (
                       <p className="mt-2 text-xs text-walnut">
-                        🗓 Next session: <strong className="text-espresso">{new Date(next.scheduled_at!).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false })}</strong>
+                        🗓 Next session: <strong className="text-espresso">{fmtDT(next.scheduled_at!)}</strong>
                       </p>
                     )}
+
+                    <details className="mt-3 border-t border-hairline pt-3 group">
+                      <summary className="flex items-center justify-between text-xs font-semibold text-gold cursor-pointer list-none">
+                        <span>View sessions &amp; message trainer</span>
+                        <span className="text-muted group-open:rotate-180 transition-transform">▾</span>
+                      </summary>
+                      <div className="mt-3 grid gap-1.5">
+                        {orderSessions(sessions).map((s, i) => (
+                          <div key={s.id} className="flex items-center justify-between rounded-lg bg-cream/60 px-3 py-2 text-xs">
+                            <span className="text-walnut">Session {i + 1}</span>
+                            <span className="text-right">
+                              {s.status === "completed" ? (
+                                <span className="text-gold font-semibold">✓ Complete</span>
+                              ) : s.scheduled_at ? (
+                                <span className="text-espresso font-semibold">🗓 {fmtDT(s.scheduled_at)}</span>
+                              ) : (
+                                <span className="text-muted">Not scheduled yet</span>
+                              )}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <a href={`/messages/${b.trainer_id}`} className="mt-3 inline-block rounded-full border border-hairline text-walnut text-xs font-semibold px-4 py-1.5 hover:border-gold transition-colors">
+                        💬 Message {relName(b.trainer_profiles)}
+                      </a>
+                    </details>
 
                     {b.status === "closed" && (
                       reviewed ? (
@@ -169,6 +195,16 @@ type Plan = { name?: string; description?: string; sessions_per_week?: number; w
 function one(rel: unknown): Plan | null {
   if (!rel) return null;
   return (Array.isArray(rel) ? rel[0] ?? null : rel) as Plan | null;
+}
+type Sess = { id: string; status: string; scheduled_at: string | null };
+/** Scheduled sessions first (by date), unscheduled last — a stable display order. */
+function orderSessions(sessions: Sess[]): Sess[] {
+  return [...sessions].sort((a, z) => {
+    if (a.scheduled_at && z.scheduled_at) return new Date(a.scheduled_at).getTime() - new Date(z.scheduled_at).getTime();
+    if (a.scheduled_at) return -1;
+    if (z.scheduled_at) return 1;
+    return 0;
+  });
 }
 function fmtDT(iso: string) {
   return new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
