@@ -189,7 +189,7 @@ export async function getMyTrainerBookings() {
 
   const { data: bookings } = await supabase
     .from("trainer_bookings")
-    .select("id, owner_id, status, sessions_total, gross_amount, created_at, trainer_sessions(id, status, scheduled_at, release_amount)")
+    .select("id, owner_id, status, sessions_total, gross_amount, created_at, trainer_sessions(id, seq, status, scheduled_at, release_amount)")
     .eq("trainer_id", profile.id)
     .order("created_at", { ascending: false });
   if (!bookings || bookings.length === 0) return [];

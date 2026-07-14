@@ -16,7 +16,15 @@ const inputVal = (iso: string | null) => (iso ? iso.slice(0, 16) : "");
 const fmt = (iso: string) =>
   new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
 
-type Session = { id: string; status: string; release_amount: number; scheduled_at: string | null };
+type Session = { id: string; seq: number | null; status: string; release_amount: number; scheduled_at: string | null };
+
+/** Fixed session order by seq (legacy rows without seq fall back to date/id). */
+function bySeq(a: Session, z: Session): number {
+  if (a.seq != null && z.seq != null) return a.seq - z.seq;
+  if (a.seq != null) return -1;
+  if (z.seq != null) return 1;
+  return (a.scheduled_at ?? "").localeCompare(z.scheduled_at ?? "") || a.id.localeCompare(z.id);
+}
 
 export default async function TrainerBookingsPage() {
   const profile = await getMyTrainerProfile();
@@ -38,7 +46,7 @@ export default async function TrainerBookingsPage() {
         ) : (
           <div className="mt-6 space-y-4">
             {bookings.map((b) => {
-              const sessions = (b.trainer_sessions ?? []) as Session[];
+              const sessions = ((b.trainer_sessions ?? []) as Session[]).slice().sort(bySeq);
               const done = sessions.filter((s) => s.status === "completed").length;
               const upcoming = sessions
                 .filter((s) => s.status !== "completed" && s.scheduled_at && new Date(s.scheduled_at) >= new Date())
@@ -102,7 +110,7 @@ export default async function TrainerBookingsPage() {
                       <div key={s.id} className="rounded-lg border border-hairline px-3 py-2.5">
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-walnut">
-                            Session {i + 1}
+                            Session {s.seq ?? i + 1}
                             <span className="text-xs text-muted"> · {cedis(Number(s.release_amount))}</span>
                             {s.scheduled_at && <span className="text-xs text-espresso"> · 🗓 {fmt(s.scheduled_at)}</span>}
                           </span>

@@ -777,8 +777,9 @@ async function createBookingWithSessions(
   // release_amount is the trainer's NET per session (after 15% commission);
   // it accrues to the trainer's balance when the session is marked complete.
   const perSession = Math.round((payout / Math.max(a.sessionsTotal, 1)) * 100) / 100;
-  const rows = Array.from({ length: a.sessionsTotal }, () => ({
+  const rows = Array.from({ length: a.sessionsTotal }, (_, i) => ({
     booking_id: booking.id,
+    seq: i + 1, // fixed display order; never renumbered on schedule/complete
     status: "scheduled" as const,
     release_amount: perSession,
   }));

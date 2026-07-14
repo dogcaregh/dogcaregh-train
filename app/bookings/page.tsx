@@ -88,7 +88,7 @@ export default async function BookingsPage({
           ) : (
             <div className="mt-3 grid gap-3">
               {bookings.map((b) => {
-                const sessions = (b.trainer_sessions ?? []) as { id: string; status: string; scheduled_at: string | null }[];
+                const sessions = (b.trainer_sessions ?? []) as Sess[];
                 const done = sessions.filter((s) => s.status === "completed").length;
                 const reviewed = ((b.trainer_reviews ?? []) as { id: string }[]).length > 0;
                 const next = sessions
@@ -142,7 +142,7 @@ export default async function BookingsPage({
                       <div className="mt-3 grid gap-1.5">
                         {orderSessions(sessions).map((s, i) => (
                           <div key={s.id} className="flex items-center justify-between rounded-lg bg-cream/60 px-3 py-2 text-xs">
-                            <span className="text-walnut">Session {i + 1}</span>
+                            <span className="text-walnut">Session {s.seq ?? i + 1}</span>
                             <span className="text-right">
                               {s.status === "completed" ? (
                                 <span className="text-gold font-semibold">✓ Complete</span>
@@ -196,14 +196,15 @@ function one(rel: unknown): Plan | null {
   if (!rel) return null;
   return (Array.isArray(rel) ? rel[0] ?? null : rel) as Plan | null;
 }
-type Sess = { id: string; status: string; scheduled_at: string | null };
-/** Scheduled sessions first (by date), unscheduled last — a stable display order. */
+type Sess = { id: string; seq: number | null; status: string; scheduled_at: string | null };
+/** Fixed session order by seq — never changes when a session is scheduled or
+ *  completed. Falls back to scheduled_at/id for any legacy row missing seq. */
 function orderSessions(sessions: Sess[]): Sess[] {
   return [...sessions].sort((a, z) => {
-    if (a.scheduled_at && z.scheduled_at) return new Date(a.scheduled_at).getTime() - new Date(z.scheduled_at).getTime();
-    if (a.scheduled_at) return -1;
-    if (z.scheduled_at) return 1;
-    return 0;
+    if (a.seq != null && z.seq != null) return a.seq - z.seq;
+    if (a.seq != null) return -1;
+    if (z.seq != null) return 1;
+    return (a.scheduled_at ?? "").localeCompare(z.scheduled_at ?? "") || a.id.localeCompare(z.id);
   });
 }
 function fmtDT(iso: string) {
