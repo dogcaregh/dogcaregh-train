@@ -13,8 +13,8 @@ import { notify } from "@/lib/notify";
 export async function markAllNotificationsRead() {
   const { supabase, user } = await authed();
   await supabase.from("trainer_notifications").update({ read: true }).eq("user_id", user.id).eq("read", false);
-  revalidatePath("/notifications");
-  redirect("/notifications");
+  // Refresh the bell/dropdown wherever it's shown, without navigating away.
+  revalidatePath("/", "layout");
 }
 
 /** users.id of the trainer behind a trainer_profiles.id (for notifications). */
