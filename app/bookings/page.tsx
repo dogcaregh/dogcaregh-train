@@ -55,18 +55,25 @@ export default async function BookingsPage({
             </p>
           ) : (
             <div className="mt-3 grid gap-3">
-              {evals.map((e) => (
-                <div key={e.id} className="rounded-xl bg-white border border-hairline p-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-espresso font-semibold">Evaluation · {relName(e.trainer_profiles)}</p>
-                    <p className="text-xs text-muted">{e.program_id ? "For a specific program" : "General evaluation"}</p>
+              {evals.map((e) => {
+                const progName = one(e.trainer_programs)?.name;
+                return (
+                  <div key={e.id} className="rounded-xl bg-white border border-hairline p-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-espresso font-semibold">Evaluation · {relName(e.trainer_profiles)}</p>
+                      <StatusPill status={e.status} />
+                    </div>
+                    <p className="mt-0.5 text-xs text-muted">
+                      {progName ? `For "${progName}"` : "General evaluation"} · {cedis(Number(e.fee))}
+                    </p>
+                    {e.scheduled_at ? (
+                      <p className="mt-1 text-xs text-walnut">🗓 Scheduled: <strong className="text-espresso">{fmtDT(e.scheduled_at)}</strong></p>
+                    ) : e.status === "requested" ? (
+                      <p className="mt-1 text-xs text-muted">Awaiting the trainer to schedule a time.</p>
+                    ) : null}
                   </div>
-                  <div className="text-right">
-                    <p className="text-espresso font-semibold">{cedis(Number(e.fee))}</p>
-                    <StatusPill status={e.status} />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
@@ -90,6 +97,19 @@ export default async function BookingsPage({
                       <p className="text-espresso font-semibold">{relName(b.trainer_profiles)}</p>
                       <StatusPill status={b.status} />
                     </div>
+                    {(() => {
+                      const plan = one(b.trainer_recommendations) ?? one(b.trainer_programs);
+                      if (!plan) return null;
+                      return (
+                        <>
+                          <p className="mt-0.5 text-xs text-muted">
+                            {plan.name ? <strong className="text-espresso">{plan.name}</strong> : "Program"} · {plan.sessions_per_week}×/week · {plan.weeks} wks · {cedis(Number(plan.price))}/session
+                            {Number(plan.discount) > 0 && ` · ${plan.discount}% off`}
+                          </p>
+                          {plan.note && <p className="mt-1 text-xs text-walnut italic">“{plan.note}”</p>}
+                        </>
+                      );
+                    })()}
                     <div className="mt-2 flex items-center justify-between text-sm">
                       <span className="text-muted">
                         {done}/{b.sessions_total} sessions complete
@@ -137,6 +157,15 @@ export default async function BookingsPage({
       </main>
     </>
   );
+}
+
+type Plan = { name?: string; sessions_per_week?: number; weeks?: number; price?: number; discount?: number; note?: string };
+function one(rel: unknown): Plan | null {
+  if (!rel) return null;
+  return (Array.isArray(rel) ? rel[0] ?? null : rel) as Plan | null;
+}
+function fmtDT(iso: string) {
+  return new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 function StatusPill({ status }: { status: string }) {
