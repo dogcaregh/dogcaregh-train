@@ -1,10 +1,15 @@
 import { redirect } from "next/navigation";
 import { TrainerNav } from "@/components/trainer-nav";
 import { getMyTrainerProfile, getMyTrainerBookings } from "@/lib/trainer-data";
-import { markSessionComplete, scheduleSession } from "@/app/actions";
+import { markSessionComplete, scheduleSession, autoScheduleSessions } from "@/app/actions";
 import { cedis } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
+
+const WEEKDAYS = [
+  { v: 1, l: "Mon" }, { v: 2, l: "Tue" }, { v: 3, l: "Wed" }, { v: 4, l: "Thu" },
+  { v: 5, l: "Fri" }, { v: 6, l: "Sat" }, { v: 0, l: "Sun" },
+];
 
 // Ghana is UTC+0, so slicing/formatting the UTC ISO matches local time.
 const inputVal = (iso: string | null) => (iso ? iso.slice(0, 16) : "");
@@ -17,6 +22,7 @@ export default async function TrainerBookingsPage() {
   const profile = await getMyTrainerProfile();
   if (!profile) redirect("/trainer/profile");
   const bookings = await getMyTrainerBookings();
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <>
@@ -47,6 +53,46 @@ export default async function TrainerBookingsPage() {
                     {b.status.replace(/_/g, " ")} · {done}/{b.sessions_total} sessions complete
                     {upcoming && <span className="text-walnut"> · next {fmt(upcoming.scheduled_at!)}</span>}
                   </p>
+
+                  {done < b.sessions_total && (
+                    <details className="mt-3 rounded-xl border border-gold/40 bg-[rgba(185,138,50,0.06)] p-3">
+                      <summary className="text-sm font-semibold text-espresso cursor-pointer">⚡ Auto-schedule all {b.sessions_total} sessions</summary>
+                      <form action={autoScheduleSessions} className="mt-3 space-y-3">
+                        <input type="hidden" name="booking_id" value={b.id} />
+                        <div>
+                          <span className="text-xs font-semibold text-walnut">Training days</span>
+                          <div className="mt-1.5 flex flex-wrap gap-1.5">
+                            {WEEKDAYS.map((d) => (
+                              <label key={d.v} className="cursor-pointer">
+                                <input type="checkbox" name="days" value={d.v} className="peer sr-only" />
+                                <span className="inline-block rounded-full border border-hairline bg-white px-3 py-1 text-xs text-walnut peer-checked:bg-walnut peer-checked:text-ivory peer-checked:border-walnut transition-colors">
+                                  {d.l}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-end gap-3">
+                          <label className="block">
+                            <span className="text-xs font-semibold text-walnut">Time</span>
+                            <input type="time" name="time" defaultValue="09:00"
+                              className="mt-1 block rounded-lg border border-hairline bg-white px-2 py-1.5 text-sm text-espresso outline-none focus:border-gold" />
+                          </label>
+                          <label className="block">
+                            <span className="text-xs font-semibold text-walnut">Start date</span>
+                            <input type="date" name="start_date" defaultValue={today} min={today}
+                              className="mt-1 block rounded-lg border border-hairline bg-white px-2 py-1.5 text-sm text-espresso outline-none focus:border-gold" />
+                          </label>
+                          <button className="rounded-full bg-mahogany text-ivory text-xs font-semibold px-4 py-2 hover:bg-espresso transition-colors">
+                            Schedule all
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-muted">
+                          Fills every session on your chosen weekdays, in order, from the start date. You can fine-tune any single session below.
+                        </p>
+                      </form>
+                    </details>
+                  )}
 
                   <div className="mt-3 grid gap-2">
                     {sessions.map((s, i) => (

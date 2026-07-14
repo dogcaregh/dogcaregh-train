@@ -647,7 +647,57 @@ function fmtWhen(when: string): string {
   });
 }
 
-/** Trainer schedules (or reschedules) a session's date/time. */
+/**
+ * Auto-fill every session on a booking from a simple recurring pattern:
+ * pick weekdays + a time + a start date, and we lay all sessions onto the next
+ * matching days in order. Ghana is UTC+0, so we compute in UTC.
+ */
+export async function autoScheduleSessions(formData: FormData) {
+  const { supabase, user } = await authed();
+  const bookingId = String(formData.get("booking_id"));
+
+  const { data: bk } = await supabase.from("trainer_bookings").select("owner_id, trainer_id").eq("id", bookingId).maybeSingle();
+  if (!bk) redirect("/trainer/bookings");
+  const myTid = await myTrainerProfileId(supabase, user.id);
+  if (!myTid || myTid !== bk.trainer_id) redirect("/trainer/bookings"); // trainer-only
+
+  const days = formData.getAll("days").map((d) => Number(d)).filter((d) => d >= 0 && d <= 6);
+  const time = String(formData.get("time") || "09:00");
+  const startStr = String(formData.get("start_date") || "").trim();
+  if (!days.length || !startStr) redirect("/trainer/bookings");
+
+  const { data: sessions } = await supabase
+    .from("trainer_sessions").select("id").eq("booking_id", bookingId).order("created_at").order("id");
+  const list = sessions ?? [];
+
+  const [h, m] = time.split(":").map(Number);
+  const dates: string[] = [];
+  const cursor = new Date(`${startStr}T00:00:00.000Z`);
+  let guard = 0;
+  while (dates.length < list.length && guard < 400) {
+    guard++;
+    if (days.includes(cursor.getUTCDay())) {
+      const dt = new Date(cursor);
+      dt.setUTCHours(h || 0, m || 0, 0, 0);
+      dates.push(dt.toISOString());
+    }
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  for (let i = 0; i < list.length && i < dates.length; i++) {
+    await supabase.from("trainer_sessions").update({ scheduled_at: dates[i], reminder_sent: false }).eq("id", list[i].id);
+  }
+
+  if (dates[0]) {
+    const when = new Date(dates[0]).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
+    await notify(supabase, bk.owner_id, "sessions_scheduled", `Your ${list.length} sessions are scheduled — first on ${when}.`, "/bookings", "Sessions scheduled");
+  }
+
+  revalidatePath("/trainer/bookings");
+  redirect("/trainer/bookings");
+}
+
+/** Trainer schedules (or reschedules) a single session's date/time. */
 export async function scheduleSession(formData: FormData) {
   const { supabase } = await authed();
   const sessionId = String(formData.get("session_id"));
