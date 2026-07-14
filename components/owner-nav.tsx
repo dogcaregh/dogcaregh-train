@@ -1,6 +1,7 @@
 import { getServerUser } from "@/lib/owner-data";
 import { signOutAction } from "@/app/actions";
 import { NotifBell } from "@/components/notif-bell";
+import { MsgLink } from "@/components/msg-link";
 
 // Plain <a> anchors (full navigation) rather than next/link on purpose: every
 // route here is auth-gated and redirects when logged out, and Next's client
@@ -21,6 +22,7 @@ export async function OwnerNav() {
           <a href="/dogs" className="text-walnut hover:text-espresso">My dogs</a>
           <a href="/recommendations" className="text-walnut hover:text-espresso">Recommendations</a>
           <a href="/bookings" className="text-walnut hover:text-espresso">My bookings</a>
+          <MsgLink href="/messages" />
           {user && (
             <span className="hidden sm:inline text-xs text-muted">{user.email}</span>
           )}

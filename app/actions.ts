@@ -796,3 +796,57 @@ async function markBookingPaidStub(
     .update({ status: "paid", paid_at: new Date().toISOString(), payment_ref: `stub_${bookingId}` })
     .eq("id", bookingId);
 }
+
+/** True once an evaluation or booking exists between this owner and trainer —
+ *  the gate that keeps messaging from being a cold-DM channel. */
+async function messagingAllowed(
+  supabase: Awaited<ReturnType<typeof authed>>["supabase"],
+  ownerId: string,
+  trainerId: string
+): Promise<boolean> {
+  const [{ count: evals }, { count: books }] = await Promise.all([
+    supabase.from("trainer_evaluations").select("id", { count: "exact", head: true })
+      .eq("owner_id", ownerId).eq("trainer_id", trainerId),
+    supabase.from("trainer_bookings").select("id", { count: "exact", head: true })
+      .eq("owner_id", ownerId).eq("trainer_id", trainerId),
+  ]);
+  return (evals ?? 0) > 0 || (books ?? 0) > 0;
+}
+
+/** Send a message in an owner↔trainer thread. The page supplies both party ids;
+ *  the sender is always the current user. */
+export async function sendMessage(formData: FormData) {
+  const { supabase, user } = await authed();
+  const ownerId = String(formData.get("owner_id") ?? "");
+  const trainerId = String(formData.get("trainer_id") ?? "");
+  const content = String(formData.get("content") ?? "").trim();
+  const redirectTo = String(formData.get("redirect_to") ?? "/");
+  if (!ownerId || !trainerId || !content) redirect(redirectTo);
+
+  // Caller must be one of the two parties.
+  const iAmOwner = user.id === ownerId;
+  const myTrainer = await myTrainerProfileId(supabase, user.id);
+  const iAmTrainer = myTrainer === trainerId;
+  if (!iAmOwner && !iAmTrainer) redirect(redirectTo);
+
+  // No cold DMs — an engagement must already exist between the two.
+  if (!(await messagingAllowed(supabase, ownerId, trainerId))) redirect(redirectTo);
+
+  await supabase.from("trainer_messages").insert({
+    owner_id: ownerId,
+    trainer_id: trainerId,
+    sender_id: user.id,
+    content: content.slice(0, 4000),
+  });
+
+  // Notify the other party.
+  if (iAmOwner) {
+    const tuid = await trainerUserId(supabase, trainerId);
+    if (tuid) await notify(supabase, tuid, "message", "You have a new message from an owner.", `/trainer/messages/${ownerId}`, "New message");
+  } else {
+    await notify(supabase, ownerId, "message", "You have a new message from your trainer.", `/messages/${trainerId}`, "New message");
+  }
+
+  revalidatePath(redirectTo);
+  redirect(redirectTo);
+}

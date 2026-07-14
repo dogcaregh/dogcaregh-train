@@ -1,17 +1,18 @@
 import { notFound } from "next/navigation";
 import { OwnerNav } from "@/components/owner-nav";
 import { BookingActions } from "@/components/booking-actions";
-import { getTrainer, getMyDogs, getMyOwnerProfile, canRebookTrainer, getTrainerReviews } from "@/lib/owner-data";
+import { getTrainer, getMyDogs, getMyOwnerProfile, canRebookTrainer, getTrainerReviews, hasEngagementWithTrainer } from "@/lib/owner-data";
 
 export const dynamic = "force-dynamic";
 
 export default async function TrainerPage({ params }: { params: { id: string } }) {
-  const [t, dogs, profile, canRebook, reviews] = await Promise.all([
+  const [t, dogs, profile, canRebook, reviews, engaged] = await Promise.all([
     getTrainer(params.id),
     getMyDogs(),
     getMyOwnerProfile(),
     canRebookTrainer(params.id),
     getTrainerReviews(params.id),
+    hasEngagementWithTrainer(params.id),
   ]);
   if (!t) notFound();
 
@@ -36,6 +37,11 @@ export default async function TrainerPage({ params }: { params: { id: string } }
             </p>
           </div>
         </div>
+        {engaged && (
+          <a href={`/messages/${t.id}`} className="mt-3 inline-block text-sm text-gold font-semibold hover:underline">
+            💬 Message {t.name}
+          </a>
+        )}
         {t.bio && <p className="mt-3 text-walnut">{t.bio}</p>}
 
         {t.gallery_photos.length > 0 && (

@@ -1,6 +1,7 @@
 import { getServerUser } from "@/lib/owner-data";
 import { signOutAction } from "@/app/actions";
 import { NotifBell } from "@/components/notif-bell";
+import { MsgLink } from "@/components/msg-link";
 
 // Plain <a> (full navigation) for auth-gated routes; sign-out is a POST.
 export async function TrainerNav() {
@@ -17,6 +18,7 @@ export async function TrainerNav() {
           <a href="/trainer/bookings" className="text-walnut hover:text-espresso">Clients</a>
           <a href="/trainer/earnings" className="text-walnut hover:text-espresso">Earnings</a>
           <a href="/trainer/profile" className="text-walnut hover:text-espresso">Profile</a>
+          <MsgLink href="/trainer/messages" />
           {user && <span className="hidden sm:inline text-xs text-muted">{user.email}</span>}
           <NotifBell />
           <form action={signOutAction}>

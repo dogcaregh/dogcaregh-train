@@ -227,6 +227,19 @@ export async function canRebookTrainer(trainerId: string): Promise<boolean> {
   return completedBookingExists(supabase, user.id, trainerId);
 }
 
+/** True once I have any evaluation or booking with this trainer — gates
+ *  messaging (no cold DMs) on the owner side. */
+export async function hasEngagementWithTrainer(trainerId: string): Promise<boolean> {
+  const { supabase, user } = await requireUser();
+  const [{ count: evals }, { count: books }] = await Promise.all([
+    supabase.from("trainer_evaluations").select("id", { count: "exact", head: true })
+      .eq("owner_id", user.id).eq("trainer_id", trainerId),
+    supabase.from("trainer_bookings").select("id", { count: "exact", head: true })
+      .eq("owner_id", user.id).eq("trainer_id", trainerId),
+  ]);
+  return (evals ?? 0) > 0 || (books ?? 0) > 0;
+}
+
 /** Public reviews for a trainer (shown anonymously on the profile). */
 export async function getTrainerReviews(trainerId: string) {
   const { supabase } = await requireUser();

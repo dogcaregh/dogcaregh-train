@@ -46,7 +46,10 @@ export default async function TrainerBookingsPage() {
               return (
                 <div key={b.id} className="rounded-2xl bg-white border border-hairline p-5">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-lg text-espresso">{b.ownerName}</h2>
+                    <div className="flex items-center gap-3">
+                      <h2 className="text-lg text-espresso">{b.ownerName}</h2>
+                      <a href={`/trainer/messages/${b.owner_id}`} className="text-xs text-gold font-semibold hover:underline">💬 Message</a>
+                    </div>
                     <span className="text-sm text-espresso font-semibold">{cedis(Number(b.gross_amount))}</span>
                   </div>
                   <p className="mt-0.5 text-xs text-muted capitalize">

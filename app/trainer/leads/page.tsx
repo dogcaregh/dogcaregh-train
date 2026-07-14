@@ -33,9 +33,12 @@ export default async function LeadsPage({ searchParams }: { searchParams: { sent
               <div key={l.id} className="rounded-2xl bg-white border border-hairline p-5">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg text-espresso">{l.ownerName}</h2>
-                  <span className="text-[10px] uppercase tracking-wide font-semibold text-walnut bg-cream border border-hairline rounded-full px-2 py-0.5 capitalize">
-                    {l.status}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <a href={`/trainer/messages/${l.owner_id}`} className="text-xs text-gold font-semibold hover:underline">💬 Message</a>
+                    <span className="text-[10px] uppercase tracking-wide font-semibold text-walnut bg-cream border border-hairline rounded-full px-2 py-0.5 capitalize">
+                      {l.status}
+                    </span>
+                  </div>
                 </div>
                 <p className="mt-1 text-sm text-muted">
                   {[l.dogName && `Dog: ${l.dogName}`, l.dogBreed, l.goal, l.neighbourhood].filter(Boolean).join(" · ") || "No intake details"}
