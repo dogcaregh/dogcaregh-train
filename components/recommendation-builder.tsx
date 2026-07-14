@@ -33,6 +33,12 @@ export function RecommendationBuilder({ evaluationId }: { evaluationId: string }
       </div>
 
       <label className="block">
+        <span className="text-xs font-semibold text-walnut">What this program includes</span>
+        <textarea name="description" rows={3} placeholder="e.g. loose-lead walking, recall, sit/stay, and settling around distractions"
+          className="mt-1 w-full rounded-lg border border-hairline bg-ivory px-3 py-2 text-sm text-espresso outline-none focus:border-gold" />
+      </label>
+
+      <label className="block">
         <span className="text-xs font-semibold text-walnut">Note to owner (optional)</span>
         <input name="note" placeholder="Why this plan fits their dog"
           className="mt-1 w-full rounded-lg border border-hairline bg-ivory px-3 py-2 text-sm text-espresso outline-none focus:border-gold" />

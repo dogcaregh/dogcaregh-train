@@ -60,7 +60,10 @@ export default async function BookingsPage({
                 return (
                   <div key={e.id} className="rounded-xl bg-white border border-hairline p-4">
                     <div className="flex items-center justify-between">
-                      <p className="text-espresso font-semibold">Evaluation · {relName(e.trainer_profiles)}</p>
+                      <p className="text-espresso font-semibold">
+                        Evaluation ·{" "}
+                        <a href={`/trainers/${e.trainer_id}`} className="hover:underline">{relName(e.trainer_profiles)}</a>
+                      </p>
                       <StatusPill status={e.status} />
                     </div>
                     <p className="mt-0.5 text-xs text-muted">
@@ -94,7 +97,9 @@ export default async function BookingsPage({
                 return (
                   <div key={b.id} className="rounded-xl bg-white border border-hairline p-4">
                     <div className="flex items-center justify-between">
-                      <p className="text-espresso font-semibold">{relName(b.trainer_profiles)}</p>
+                      <a href={`/trainers/${b.trainer_id}`} className="text-espresso font-semibold hover:underline">
+                        {relName(b.trainer_profiles)}
+                      </a>
                       <StatusPill status={b.status} />
                     </div>
                     {(() => {
@@ -106,7 +111,8 @@ export default async function BookingsPage({
                             {plan.name ? <strong className="text-espresso">{plan.name}</strong> : "Program"} · {plan.sessions_per_week}×/week · {plan.weeks} wks · {cedis(Number(plan.price))}/session
                             {Number(plan.discount) > 0 && ` · ${plan.discount}% off`}
                           </p>
-                          {plan.note && <p className="mt-1 text-xs text-walnut italic">“{plan.note}”</p>}
+                          {plan.description && <p className="mt-1 text-xs text-walnut whitespace-pre-line">{plan.description}</p>}
+                          {plan.note && <p className="mt-1 text-xs text-muted italic">“{plan.note}”</p>}
                         </>
                       );
                     })()}
@@ -159,7 +165,7 @@ export default async function BookingsPage({
   );
 }
 
-type Plan = { name?: string; sessions_per_week?: number; weeks?: number; price?: number; discount?: number; note?: string };
+type Plan = { name?: string; description?: string; sessions_per_week?: number; weeks?: number; price?: number; discount?: number; note?: string };
 function one(rel: unknown): Plan | null {
   if (!rel) return null;
   return (Array.isArray(rel) ? rel[0] ?? null : rel) as Plan | null;

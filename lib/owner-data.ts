@@ -258,7 +258,7 @@ export async function listMyRecommendations() {
   const { supabase, user } = await requireUser();
   const { data } = await supabase
     .from("trainer_recommendations")
-    .select("id, trainer_id, name, is_custom, sessions_per_week, weeks, price, discount, note, status, created_at, trainer_profiles(users(name))")
+    .select("id, trainer_id, name, description, is_custom, sessions_per_week, weeks, price, discount, note, status, created_at, trainer_profiles(users(name)), trainer_evaluations(dogs(name))")
     .eq("owner_id", user.id)
     .order("created_at", { ascending: false });
   return data ?? [];
@@ -268,7 +268,7 @@ export async function listMyBookings() {
   const { supabase, user } = await requireUser();
   const { data } = await supabase
     .from("trainer_bookings")
-    .select("id, trainer_id, status, sessions_total, gross_amount, created_at, trainer_profiles(users(name)), trainer_sessions(id, status, scheduled_at), trainer_reviews(id), trainer_recommendations(name, sessions_per_week, weeks, price, discount, note, is_custom), trainer_programs(name, sessions_per_week, weeks, price, discount)")
+    .select("id, trainer_id, status, sessions_total, gross_amount, created_at, trainer_profiles(users(name)), trainer_sessions(id, status, scheduled_at), trainer_reviews(id), trainer_recommendations(name, description, sessions_per_week, weeks, price, discount, note, is_custom), trainer_programs(name, description, sessions_per_week, weeks, price, discount)")
     .eq("owner_id", user.id)
     .order("created_at", { ascending: false });
   return data ?? [];

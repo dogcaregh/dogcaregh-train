@@ -519,6 +519,7 @@ export async function sendRecommendation(formData: FormData) {
   const isCustom = String(formData.get("mode")) === "custom";
   let row: {
     name: string | null;
+    description: string | null;
     sessions_per_week: number;
     weeks: number;
     price: number;
@@ -530,6 +531,7 @@ export async function sendRecommendation(formData: FormData) {
     const price = Number(formData.get("price") || 0);
     row = {
       name: String(formData.get("name") ?? "").trim() || "Custom plan",
+      description: String(formData.get("description") ?? "").trim() || null,
       sessions_per_week: Number(formData.get("sessions_per_week") || 1),
       weeks: Number(formData.get("weeks") || 1),
       price,
@@ -539,12 +541,13 @@ export async function sendRecommendation(formData: FormData) {
   } else {
     const { data: program } = await supabase
       .from("trainer_programs")
-      .select("name, sessions_per_week, weeks, price, discount")
+      .select("name, description, sessions_per_week, weeks, price, discount")
       .eq("id", String(formData.get("program_id")))
       .maybeSingle();
     if (!program) redirect("/trainer/leads");
     row = {
       name: program.name,
+      description: program.description ?? null,
       sessions_per_week: program.sessions_per_week,
       weeks: program.weeks,
       price: Number(program.price),
