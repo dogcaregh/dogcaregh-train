@@ -637,6 +637,37 @@ export async function submitReview(formData: FormData) {
   redirect("/bookings?reviewed=1");
 }
 
+function fmtWhen(when: string): string {
+  // Ghana is UTC+0, so server (UTC) formatting matches local time.
+  return new Date(when).toLocaleString("en-GB", {
+    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false,
+  });
+}
+
+/** Trainer schedules (or reschedules) a session's date/time. */
+export async function scheduleSession(formData: FormData) {
+  const { supabase } = await authed();
+  const sessionId = String(formData.get("session_id"));
+  const when = String(formData.get("scheduled_at") ?? "").trim();
+  const iso = when ? new Date(when).toISOString() : null;
+
+  await supabase.from("trainer_sessions").update({ scheduled_at: iso, reminder_sent: false }).eq("id", sessionId);
+
+  if (iso) {
+    const { data: s } = await supabase
+      .from("trainer_sessions")
+      .select("trainer_bookings(owner_id)")
+      .eq("id", sessionId)
+      .maybeSingle();
+    const bk = s?.trainer_bookings as { owner_id: string } | { owner_id: string }[] | null;
+    const ownerId = Array.isArray(bk) ? bk[0]?.owner_id : bk?.owner_id;
+    if (ownerId) await notify(supabase, ownerId, "session_scheduled", `A training session was scheduled for ${fmtWhen(when)}.`, "/bookings");
+  }
+
+  revalidatePath("/trainer/bookings");
+  redirect("/trainer/bookings");
+}
+
 export async function requestCashout(formData: FormData) {
   const { supabase, user } = await authed();
   const trainerId = await myTrainerProfileId(supabase, user.id);

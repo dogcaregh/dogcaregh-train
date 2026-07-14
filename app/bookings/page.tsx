@@ -78,9 +78,12 @@ export default async function BookingsPage({
           ) : (
             <div className="mt-3 grid gap-3">
               {bookings.map((b) => {
-                const sessions = (b.trainer_sessions ?? []) as { id: string; status: string }[];
+                const sessions = (b.trainer_sessions ?? []) as { id: string; status: string; scheduled_at: string | null }[];
                 const done = sessions.filter((s) => s.status === "completed").length;
                 const reviewed = ((b.trainer_reviews ?? []) as { id: string }[]).length > 0;
+                const next = sessions
+                  .filter((s) => s.status !== "completed" && s.scheduled_at && new Date(s.scheduled_at) >= new Date())
+                  .sort((a, z) => new Date(a.scheduled_at!).getTime() - new Date(z.scheduled_at!).getTime())[0];
                 return (
                   <div key={b.id} className="rounded-xl bg-white border border-hairline p-4">
                     <div className="flex items-center justify-between">
@@ -99,6 +102,11 @@ export default async function BookingsPage({
                         style={{ width: `${b.sessions_total ? (done / b.sessions_total) * 100 : 0}%` }}
                       />
                     </div>
+                    {next && (
+                      <p className="mt-2 text-xs text-walnut">
+                        🗓 Next session: <strong className="text-espresso">{new Date(next.scheduled_at!).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false })}</strong>
+                      </p>
+                    )}
 
                     {b.status === "closed" && (
                       reviewed ? (
