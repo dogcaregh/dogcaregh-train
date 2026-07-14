@@ -26,7 +26,7 @@ function bySeq(a: Session, z: Session): number {
   return (a.scheduled_at ?? "").localeCompare(z.scheduled_at ?? "") || a.id.localeCompare(z.id);
 }
 
-export default async function TrainerBookingsPage() {
+export default async function TrainerBookingsPage({ searchParams }: { searchParams: { err?: string } }) {
   const profile = await getMyTrainerProfile();
   if (!profile) redirect("/trainer/profile");
   const bookings = await getMyTrainerBookings();
@@ -41,6 +41,12 @@ export default async function TrainerBookingsPage() {
           Schedule each session and mark it complete as you deliver it — completing releases that session&apos;s payout.
         </p>
 
+        {searchParams.err === "unpaid" && (
+          <div className="mt-4 rounded-xl border border-gold/40 bg-[rgba(185,138,50,0.10)] p-4 text-sm text-walnut">
+            That program hasn&apos;t been paid yet, so sessions can&apos;t be marked complete. They unlock once the owner completes payment.
+          </div>
+        )}
+
         {bookings.length === 0 ? (
           <p className="mt-8 text-muted">No booked programs yet.</p>
         ) : (
@@ -48,6 +54,9 @@ export default async function TrainerBookingsPage() {
             {bookings.map((b) => {
               const sessions = ((b.trainer_sessions ?? []) as unknown as Session[]).slice().sort(bySeq);
               const done = sessions.filter((s) => s.status === "completed").length;
+              // Completing a session releases the trainer's payout, so it's
+              // gated until the program is actually paid.
+              const paid = !["pending", "cancelled"].includes(b.status);
               const upcoming = sessions
                 .filter((s) => s.status !== "completed" && s.scheduled_at && new Date(s.scheduled_at) >= new Date())
                 .sort((a, z) => new Date(a.scheduled_at!).getTime() - new Date(z.scheduled_at!).getTime())[0];
@@ -64,6 +73,12 @@ export default async function TrainerBookingsPage() {
                     {b.status.replace(/_/g, " ")} · {done}/{b.sessions_total} sessions complete
                     {upcoming && <span className="text-walnut"> · next {fmt(upcoming.scheduled_at!)}</span>}
                   </p>
+
+                  {!paid && (
+                    <p className="mt-2 rounded-lg border border-gold/40 bg-[rgba(185,138,50,0.08)] px-3 py-2 text-xs text-walnut">
+                      ⏳ Awaiting the owner&apos;s payment. You can schedule sessions now, but you can only mark them complete (which releases your payout) once the program is paid.
+                    </p>
+                  )}
 
                   {done < b.sessions_total && (
                     <details className="mt-3 rounded-xl border border-gold/40 bg-[rgba(185,138,50,0.06)] p-3">
@@ -116,13 +131,15 @@ export default async function TrainerBookingsPage() {
                           </span>
                           {s.status === "completed" ? (
                             <span className="text-xs text-gold font-semibold">✓ Complete</span>
-                          ) : (
+                          ) : paid ? (
                             <form action={markSessionComplete}>
                               <input type="hidden" name="session_id" value={s.id} />
                               <button className="rounded-full bg-walnut text-ivory text-xs font-semibold px-3 py-1 hover:bg-mahogany transition-colors">
                                 Mark complete
                               </button>
                             </form>
+                          ) : (
+                            <span className="text-xs text-muted">Awaiting payment</span>
                           )}
                         </div>
                         {s.status !== "completed" && (

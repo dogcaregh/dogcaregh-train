@@ -587,6 +587,11 @@ export async function markSessionComplete(formData: FormData) {
   const booking = Array.isArray(bk) ? bk[0] : bk;
   // Escrow: only release a session once the program is actually paid.
   const payable = booking && !["pending", "cancelled"].includes(booking.status);
+  if (s && booking && !payable) {
+    // Give the trainer a reason rather than a silent no-op.
+    revalidatePath("/trainer/bookings");
+    redirect("/trainer/bookings?err=unpaid");
+  }
   if (s && booking && payable) {
     await supabase
       .from("trainer_sessions")
