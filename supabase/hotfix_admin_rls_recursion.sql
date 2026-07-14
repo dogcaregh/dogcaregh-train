@@ -1,17 +1,15 @@
 -- ============================================================
--- Phase 5 — admin vetting (ADDITIVE)
--- Lets platform admins (users.role = 'admin') read every trainer profile
--- (incl. pending) and set vetting_status. Replaces the preview auto-verify.
--- Existing trainer_profiles policies (public read, own write) are untouched.
+-- HOTFIX — RLS infinite recursion (42P17) breaking dogs reads.
 --
--- IMPORTANT: the admin check uses a SECURITY DEFINER function, NOT an inline
--- `EXISTS (SELECT ... FROM users ...)`. An inline users subquery re-triggers
--- users' RLS and closes a policy cycle
+-- add_admin_trainer_vetting's admin policies checked the role via a subquery
+-- on public.users, closing an RLS cycle:
 --   trainer_evaluations -> trainer_profiles -> users -> trainer_evaluations
--- causing "infinite recursion detected in policy" (42P17) on dogs reads.
--- SECURITY DEFINER runs the lookup with the owner's rights, bypassing that RLS.
+-- which made every dogs read (owner dashboard) throw 42P17.
 --
--- Run in Supabase SQL Editor. Rollback: rollback_admin_trainer_vetting.sql
+-- Fix: check admin via a SECURITY DEFINER function that runs with the
+-- function owner's rights, so it does NOT re-trigger users' RLS. Cycle broken.
+-- DB-only change; takes effect immediately (no redeploy).
+-- Run in Supabase Dashboard → SQL Editor.
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION public.is_admin()
