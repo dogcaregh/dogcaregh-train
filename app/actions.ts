@@ -322,13 +322,18 @@ export async function saveTrainerProfile(formData: FormData) {
     active: true,
   };
 
-  // New trainers start 'pending' (admin approves). Editing an existing profile
-  // must NOT reset vetting_status — so only set it on first create.
+  // Provisioning rule: trainer status is granted ONLY via direct sign-up on
+  // the trainer app (/signup stamps user_metadata.role = 'trainer'). A
+  // dogcaregh owner/provider account is never auto-promoted. Existing trainer
+  // profiles are grandfathered (edits allowed); only CREATION is gated.
   const existing = await myTrainerProfileId(supabase, user.id);
+  const trainerOrigin = user.user_metadata?.role === "trainer";
   if (existing) {
     await supabase.from("trainer_profiles").update(base).eq("user_id", user.id);
-  } else {
+  } else if (trainerOrigin) {
     await supabase.from("trainer_profiles").insert({ ...base, vetting_status: "pending" });
+  } else {
+    redirect("/trainer"); // not a trainer account → blocked
   }
 
   // One account can be both owner and trainer.

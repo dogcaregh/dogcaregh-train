@@ -1,12 +1,36 @@
 import { TrainerNav } from "@/components/trainer-nav";
+import { getServerUser } from "@/lib/owner-data";
 import { getMyTrainerProfile, getMyPrograms, getMyLeads, getMyTrainerBookings } from "@/lib/trainer-data";
 
 export const dynamic = "force-dynamic";
 
 export default async function TrainerDashboard() {
-  const profile = await getMyTrainerProfile();
+  const [profile, user] = await Promise.all([getMyTrainerProfile(), getServerUser()]);
+  const trainerOrigin = user?.user_metadata?.role === "trainer";
 
   if (!profile) {
+    // Trainer status is only for accounts that signed up as a trainer.
+    // dogcaregh owners/providers can't self-promote — they sign up separately.
+    if (!trainerOrigin) {
+      return (
+        <>
+          <TrainerNav />
+          <main className="mx-auto max-w-xl px-5 py-16 text-center">
+            <h1 className="text-3xl text-espresso">Trainer accounts are separate</h1>
+            <p className="mt-2 text-muted">
+              Your DogCareGH account is set up as a dog owner here. To offer training, create a dedicated trainer account.
+            </p>
+            <a href="/signup" className="mt-6 inline-block rounded-full bg-mahogany text-ivory text-sm font-semibold px-6 py-3 hover:bg-espresso transition-colors">
+              Sign up as a trainer
+            </a>
+            <p className="mt-4 text-sm text-muted">
+              Looking for training instead?{" "}
+              <a href="/trainers" className="text-gold font-semibold hover:underline">Find a trainer →</a>
+            </p>
+          </main>
+        </>
+      );
+    }
     return (
       <>
         <TrainerNav />

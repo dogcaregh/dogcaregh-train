@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { signOutAction } from "@/app/actions";
 import { isAdmin } from "@/lib/admin";
+import { getMyDogs } from "@/lib/owner-data";
 
 // Always read the live session — never statically cache this page.
 export const dynamic = "force-dynamic";
@@ -20,6 +21,8 @@ export default async function Home() {
     data: { user },
   } = await supabase.auth.getUser();
   const admin = user ? await isAdmin() : false;
+  const trainerOrigin = user?.user_metadata?.role === "trainer";
+  const dogs = user ? await getMyDogs() : [];
 
   return (
     <main className="min-h-screen flex items-center justify-center px-6 py-16">
@@ -51,11 +54,22 @@ export default async function Home() {
             >
               Find a dog trainer →
             </a>
-            <div className="mt-3">
-              <a href="/trainer" className="text-sm text-gold font-semibold hover:underline">
-                I&apos;m a trainer →
-              </a>
-            </div>
+            {!trainerOrigin && dogs.length === 0 && (
+              <p className="mt-3 text-sm text-muted">
+                First,{" "}
+                <a href="/dogs?next=/trainers" className="text-gold font-semibold hover:underline">
+                  add your dog
+                </a>{" "}
+                — bookings are made per dog.
+              </p>
+            )}
+            {trainerOrigin && (
+              <div className="mt-3">
+                <a href="/trainer" className="text-sm text-gold font-semibold hover:underline">
+                  My trainer dashboard →
+                </a>
+              </div>
+            )}
             {admin && (
               <div className="mt-3">
                 <a href="/admin" className="text-sm text-gold font-semibold hover:underline">
