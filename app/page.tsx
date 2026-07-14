@@ -49,11 +49,14 @@ export default async function Home() {
               You arrived here already authenticated — no second login.
             </p>
             <a
-              href="/trainers"
+              href="/dashboard"
               className="mt-6 inline-block rounded-full bg-espresso text-ivory text-sm font-semibold px-5 py-2.5 hover:bg-mahogany transition-colors"
             >
-              Find a dog trainer →
+              Go to my dashboard →
             </a>
+            <div className="mt-3">
+              <a href="/trainers" className="text-sm text-gold font-semibold hover:underline">Find a dog trainer →</a>
+            </div>
             {!trainerOrigin && dogs.length === 0 && (
               <p className="mt-3 text-sm text-muted">
                 First,{" "}

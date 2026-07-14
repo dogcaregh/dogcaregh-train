@@ -1,8 +1,12 @@
 import { TrainerNav } from "@/components/trainer-nav";
 import { getServerUser } from "@/lib/owner-data";
-import { getMyTrainerProfile, getMyPrograms, getMyLeads, getMyTrainerBookings } from "@/lib/trainer-data";
+import { getMyTrainerProfile, getMyPrograms, getMyLeads, getMyTrainerBookings, getMyEarnings } from "@/lib/trainer-data";
+import { cedis } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
+
+const fmt = (iso: string) =>
+  new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
 
 export default async function TrainerDashboard() {
   const [profile, user] = await Promise.all([getMyTrainerProfile(), getServerUser()]);
@@ -47,12 +51,24 @@ export default async function TrainerDashboard() {
     );
   }
 
-  const [programs, leads, bookings] = await Promise.all([
+  const [programs, leads, bookings, earnings] = await Promise.all([
     getMyPrograms(),
     getMyLeads(),
     getMyTrainerBookings(),
+    getMyEarnings(),
   ]);
   const openLeads = leads.filter((l) => !l.hasRecommendation && l.status !== "cancelled").length;
+
+  type S = { status: string; scheduled_at: string | null };
+  const allSessions = bookings.flatMap((b) =>
+    ((b.trainer_sessions ?? []) as S[]).map((s) => ({ ...s, ownerName: b.ownerName as string }))
+  );
+  const now = new Date();
+  const upcoming = allSessions
+    .filter((s) => s.status !== "completed" && s.scheduled_at && new Date(s.scheduled_at) >= now)
+    .sort((a, z) => new Date(a.scheduled_at!).getTime() - new Date(z.scheduled_at!).getTime());
+  const toMark = allSessions.filter((s) => s.status !== "completed" && s.scheduled_at && new Date(s.scheduled_at) < now).length;
+  const verified = profile.vetting_status === "verified";
 
   return (
     <>
@@ -72,20 +88,59 @@ export default async function TrainerDashboard() {
           <a href="/trainer/profile" className="text-sm text-gold font-semibold hover:underline">Edit profile</a>
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-3">
+        {!verified && (
+          <div className="mt-4 rounded-xl border border-gold/40 bg-[rgba(185,138,50,0.08)] p-4 text-sm text-walnut">
+            Your profile is <strong className="capitalize">{profile.vetting_status}</strong> — you won&apos;t appear to owners until an admin approves it. Add photos and complete your profile to help.
+          </div>
+        )}
+
+        {/* Needs attention */}
+        {(openLeads > 0 || toMark > 0) && (
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            {openLeads > 0 && (
+              <a href="/trainer/leads" className="block rounded-2xl border border-gold/50 bg-[rgba(185,138,50,0.08)] p-4 hover:border-gold transition-colors">
+                <p className="text-sm font-semibold text-espresso">✨ {openLeads} lead{openLeads > 1 ? "s" : ""} to respond to</p>
+                <p className="mt-0.5 text-xs text-walnut">Evaluate and send a recommendation.</p>
+              </a>
+            )}
+            {toMark > 0 && (
+              <a href="/trainer/bookings" className="block rounded-2xl border border-gold/50 bg-[rgba(185,138,50,0.08)] p-4 hover:border-gold transition-colors">
+                <p className="text-sm font-semibold text-espresso">✓ {toMark} session{toMark > 1 ? "s" : ""} to mark complete</p>
+                <p className="mt-0.5 text-xs text-walnut">Mark delivered sessions to release payout.</p>
+              </a>
+            )}
+          </div>
+        )}
+
+        <div className="mt-6 grid gap-4 sm:grid-cols-4">
           <Stat label="Open leads" value={openLeads} href="/trainer/leads" cta="View leads" />
-          <Stat label="Programs" value={programs.length} href="/trainer/programs" cta="Manage programs" />
-          <Stat label="Clients" value={bookings.length} href="/trainer/bookings" cta="View clients" />
+          <Stat label="Programs" value={programs.length} href="/trainer/programs" cta="Manage" />
+          <Stat label="Clients" value={bookings.length} href="/trainer/bookings" cta="View" />
+          <Stat label="Available" value={cedis(earnings.available)} href="/trainer/earnings" cta="Cash out" money />
         </div>
+
+        {upcoming.length > 0 && (
+          <section className="mt-8">
+            <h2 className="text-lg text-espresso">Upcoming sessions</h2>
+            <div className="mt-3 grid gap-2">
+              {upcoming.slice(0, 6).map((s, i) => (
+                <div key={i} className="flex items-center justify-between rounded-xl bg-white border border-hairline px-4 py-3 text-sm">
+                  <span className="text-walnut">🗓 {s.ownerName}</span>
+                  <span className="text-espresso font-semibold">{fmt(s.scheduled_at!)}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </main>
     </>
   );
 }
 
-function Stat({ label, value, href, cta }: { label: string; value: number; href: string; cta: string }) {
+function Stat({ label, value, href, cta, money }: { label: string; value: number | string; href: string; cta: string; money?: boolean }) {
   return (
     <a href={href} className="block rounded-2xl bg-white border border-hairline p-5 hover:border-gold transition-colors">
-      <p className="text-4xl font-display text-espresso">{value}</p>
+      <p className={`font-display text-espresso ${money ? "text-2xl" : "text-4xl"}`}>{value}</p>
       <p className="mt-1 text-sm text-walnut">{label}</p>
       <p className="mt-3 text-xs text-gold font-semibold">{cta} →</p>
     </a>

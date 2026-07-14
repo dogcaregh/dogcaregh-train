@@ -16,6 +16,7 @@ export async function OwnerNav() {
           DogTrainerGH
         </a>
         <nav className="flex items-center gap-5 text-sm">
+          <a href="/dashboard" className="text-walnut hover:text-espresso">Dashboard</a>
           <a href="/trainers" className="text-walnut hover:text-espresso">Trainers</a>
           <a href="/dogs" className="text-walnut hover:text-espresso">My dogs</a>
           <a href="/recommendations" className="text-walnut hover:text-espresso">Recommendations</a>
