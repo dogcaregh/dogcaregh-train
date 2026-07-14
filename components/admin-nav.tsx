@@ -1,4 +1,5 @@
 import { signOutAction } from "@/app/actions";
+import { NotifBell } from "@/components/notif-bell";
 
 export function AdminNav() {
   return (
@@ -12,6 +13,7 @@ export function AdminNav() {
           <a href="/admin/users" className="text-walnut hover:text-espresso">Users</a>
           <a href="/admin/bookings" className="text-walnut hover:text-espresso">Bookings</a>
           <a href="/admin/cashouts" className="text-walnut hover:text-espresso">Cash-outs</a>
+          <NotifBell />
           <form action={signOutAction}>
             <button type="submit" className="text-gold font-semibold hover:underline">Sign out</button>
           </form>

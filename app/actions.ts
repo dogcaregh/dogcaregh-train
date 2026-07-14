@@ -6,8 +6,25 @@ import { headers } from "next/headers";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { completedBookingExists } from "@/lib/owner-data";
 import { trainerEarnings } from "@/lib/trainer-data";
-import { programTotal, totalSessions, splitAmount } from "@/lib/pricing";
+import { programTotal, totalSessions, splitAmount, cedis } from "@/lib/pricing";
 import { paystackEnabled, initTransaction } from "@/lib/paystack";
+import { notify } from "@/lib/notify";
+
+export async function markAllNotificationsRead() {
+  const { supabase, user } = await authed();
+  await supabase.from("trainer_notifications").update({ read: true }).eq("user_id", user.id).eq("read", false);
+  revalidatePath("/notifications");
+  redirect("/notifications");
+}
+
+/** users.id of the trainer behind a trainer_profiles.id (for notifications). */
+async function trainerUserId(
+  supabase: Awaited<ReturnType<typeof authed>>["supabase"],
+  trainerProfileId: string
+): Promise<string | null> {
+  const { data } = await supabase.from("trainer_profiles").select("user_id").eq("id", trainerProfileId).maybeSingle();
+  return data?.user_id ?? null;
+}
 
 // Start Paystack checkout for a record. Returns the hosted-checkout URL, or
 // null when Paystack isn't configured yet (env-gated stub keeps the preview
@@ -191,6 +208,8 @@ export async function bookEvaluation(formData: FormData) {
     .from("trainer_evaluations")
     .update({ paid_at: new Date().toISOString(), payment_ref: `stub_${ev.id}` })
     .eq("id", ev.id);
+  const evalTrainerUid = await trainerUserId(supabase, trainerId);
+  if (evalTrainerUid) await notify(supabase, evalTrainerUid, "eval_paid", "New paid evaluation request.", "/trainer/leads", "New evaluation request");
   revalidatePath("/bookings");
   redirect("/bookings?booked=eval");
 }
@@ -238,6 +257,8 @@ export async function rebookProgram(formData: FormData) {
   if (url) redirect(url);
 
   await markBookingPaidStub(supabase, booking.id);
+  const rebookTrainerUid = await trainerUserId(supabase, prog.trainer_id);
+  if (rebookTrainerUid) await notify(supabase, rebookTrainerUid, "booking_paid", "A program was booked and paid.", "/trainer/bookings", "New booking");
   revalidatePath("/bookings");
   redirect("/bookings?booked=program");
 }
@@ -280,6 +301,8 @@ export async function acceptRecommendation(formData: FormData) {
   if (url) redirect(url);
 
   await markBookingPaidStub(supabase, booking.id);
+  const acceptTrainerUid = await trainerUserId(supabase, rec.trainer_id);
+  if (acceptTrainerUid) await notify(supabase, acceptTrainerUid, "booking_paid", "A program was booked and paid.", "/trainer/bookings", "New booking");
   revalidatePath("/bookings");
   redirect("/bookings?booked=recommendation");
 }
@@ -359,7 +382,15 @@ export async function adminSetBookingStatus(formData: FormData) {
   await assertAdmin(supabase, user.id);
   const status = String(formData.get("status"));
   if (!BOOKING_STATUSES.includes(status)) redirect("/admin/bookings");
-  await supabase.from("trainer_bookings").update({ status }).eq("id", String(formData.get("booking_id")));
+  const bookingId = String(formData.get("booking_id"));
+  await supabase.from("trainer_bookings").update({ status }).eq("id", bookingId);
+  const { data: bk } = await supabase.from("trainer_bookings").select("owner_id, trainer_id").eq("id", bookingId).maybeSingle();
+  if (bk) {
+    const label = status.replace(/_/g, " ");
+    await notify(supabase, bk.owner_id, "booking_updated", `An admin updated your booking status to "${label}".`, "/bookings");
+    const tuid = await trainerUserId(supabase, bk.trainer_id);
+    if (tuid) await notify(supabase, tuid, "booking_updated", `An admin updated a booking status to "${label}".`, "/trainer/bookings");
+  }
   revalidatePath("/admin/bookings");
   redirect("/admin/bookings");
 }
@@ -385,6 +416,8 @@ export async function adminProcessCashout(formData: FormData) {
   await assertAdmin(supabase, user.id);
   const action = String(formData.get("action"));
   if (action !== "paid" && action !== "rejected") redirect("/admin/cashouts");
+  const cashoutId = String(formData.get("cashout_id"));
+  const { data: co } = await supabase.from("trainer_cashout_requests").select("trainer_id, amount").eq("id", cashoutId).maybeSingle();
   await supabase
     .from("trainer_cashout_requests")
     .update({
@@ -392,7 +425,11 @@ export async function adminProcessCashout(formData: FormData) {
       note: String(formData.get("note") ?? "").trim() || null,
       paid_at: action === "paid" ? new Date().toISOString() : null,
     })
-    .eq("id", String(formData.get("cashout_id")));
+    .eq("id", cashoutId);
+  if (co) {
+    const tuid = await trainerUserId(supabase, co.trainer_id);
+    if (tuid) await notify(supabase, tuid, "cashout_processed", `Your cash-out of ${cedis(Number(co.amount))} was ${action}.`, "/trainer/earnings", "Cash-out update");
+  }
   revalidatePath("/admin/cashouts");
   redirect("/admin/cashouts");
 }
@@ -405,10 +442,13 @@ export async function setTrainerVetting(formData: FormData) {
   const status = String(formData.get("status"));
   if (!["verified", "rejected", "pending"].includes(status)) redirect("/admin/trainers");
 
-  await supabase
-    .from("trainer_profiles")
-    .update({ vetting_status: status })
-    .eq("id", String(formData.get("trainer_id")));
+  const trainerId = String(formData.get("trainer_id"));
+  await supabase.from("trainer_profiles").update({ vetting_status: status }).eq("id", trainerId);
+
+  if (status !== "pending") {
+    const tuid = await trainerUserId(supabase, trainerId);
+    if (tuid) await notify(supabase, tuid, "vetting", `Your trainer profile was ${status === "verified" ? "approved — you're now discoverable" : "rejected"}.`, "/trainer", "Trainer vetting update");
+  }
 
   revalidatePath("/admin/trainers");
   redirect("/admin/trainers");
@@ -451,11 +491,14 @@ export async function deleteProgram(formData: FormData) {
 
 export async function scheduleEvaluation(formData: FormData) {
   const { supabase } = await authed();
+  const evaluationId = String(formData.get("evaluation_id"));
   const when = String(formData.get("scheduled_at") ?? "").trim();
   await supabase
     .from("trainer_evaluations")
     .update({ status: "scheduled", scheduled_at: when ? new Date(when).toISOString() : null })
-    .eq("id", String(formData.get("evaluation_id")));
+    .eq("id", evaluationId);
+  const { data: ev } = await supabase.from("trainer_evaluations").select("owner_id").eq("id", evaluationId).maybeSingle();
+  if (ev?.owner_id) await notify(supabase, ev.owner_id, "eval_scheduled", "Your evaluation has been scheduled.", "/bookings");
   revalidatePath("/trainer/leads");
   redirect("/trainer/leads");
 }
@@ -521,6 +564,8 @@ export async function sendRecommendation(formData: FormData) {
 
   await supabase.from("trainer_evaluations").update({ status: "completed" }).eq("id", evaluationId);
 
+  await notify(supabase, evaluation.owner_id, "recommendation_sent", "You have a new program recommendation to review.", "/recommendations", "New program recommendation");
+
   revalidatePath("/trainer/leads");
   redirect("/trainer/leads?sent=1");
 }
@@ -531,30 +576,34 @@ export async function markSessionComplete(formData: FormData) {
 
   const { data: s } = await supabase
     .from("trainer_sessions")
-    .select("id, booking_id, trainer_bookings(status, sessions_total)")
+    .select("id, booking_id, trainer_bookings(owner_id, trainer_id, status, sessions_total)")
     .eq("id", sessionId)
     .maybeSingle();
-  const bk = s?.trainer_bookings as
-    | { status: string; sessions_total: number }
-    | { status: string; sessions_total: number }[]
-    | null;
+  type Bk = { owner_id: string; trainer_id: string; status: string; sessions_total: number };
+  const bk = s?.trainer_bookings as Bk | Bk[] | null;
   const booking = Array.isArray(bk) ? bk[0] : bk;
   // Escrow: only release a session once the program is actually paid.
   const payable = booking && !["pending", "cancelled"].includes(booking.status);
-  if (s && payable) {
+  if (s && booking && payable) {
     await supabase
       .from("trainer_sessions")
       .update({ status: "completed", released_at: new Date().toISOString() })
       .eq("id", sessionId);
 
-    // When every session is complete, close the booking (completed program).
     const { data: sessions } = await supabase
       .from("trainer_sessions")
       .select("status")
       .eq("booking_id", s.booking_id);
     const done = (sessions ?? []).filter((x) => x.status === "completed").length;
-    if (booking && done >= booking.sessions_total) {
-      await supabase.from("trainer_bookings").update({ status: "closed" }).eq("id", s.booking_id);
+    const closed = done >= booking.sessions_total;
+    if (closed) await supabase.from("trainer_bookings").update({ status: "closed" }).eq("id", s.booking_id);
+
+    if (closed) {
+      await notify(supabase, booking.owner_id, "program_complete", "Your training program is complete 🎉 — leave a review!", "/bookings", "Program complete");
+      const tuid = await trainerUserId(supabase, booking.trainer_id);
+      if (tuid) await notify(supabase, tuid, "program_complete", "A program was completed.", "/trainer/bookings");
+    } else {
+      await notify(supabase, booking.owner_id, "session_completed", `A session was marked complete (${done}/${booking.sessions_total}).`, "/bookings");
     }
   }
 

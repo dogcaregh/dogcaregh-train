@@ -1,5 +1,6 @@
 import { getServerUser } from "@/lib/owner-data";
 import { signOutAction } from "@/app/actions";
+import { NotifBell } from "@/components/notif-bell";
 
 // Plain <a> anchors (full navigation) rather than next/link on purpose: every
 // route here is auth-gated and redirects when logged out, and Next's client
@@ -22,6 +23,7 @@ export async function OwnerNav() {
           {user && (
             <span className="hidden sm:inline text-xs text-muted">{user.email}</span>
           )}
+          <NotifBell />
           <form action={signOutAction}>
             <button type="submit" className="text-gold font-semibold hover:underline">Sign out</button>
           </form>

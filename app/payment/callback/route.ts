@@ -1,6 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { verifyTransaction } from "@/lib/paystack";
+import { notify } from "@/lib/notify";
+
+async function notifyTrainerByProfile(admin: SupabaseClient, trainerProfileId: string, type: string, message: string, link: string, subject: string) {
+  const { data } = await admin.from("trainer_profiles").select("user_id").eq("id", trainerProfileId).maybeSingle();
+  if (data?.user_id) await notify(admin, data.user_id, type, message, link, subject);
+}
 
 // Paystack redirects here after checkout. We VERIFY the transaction (instead of
 // relying on a webhook — the care app owns the account's single webhook) and,
@@ -31,7 +37,7 @@ export async function GET(request: NextRequest) {
   if (kind === "evaluation") {
     const { data: ev } = await admin
       .from("trainer_evaluations")
-      .select("id, fee, paid_at")
+      .select("id, fee, paid_at, trainer_id")
       .eq("id", id)
       .single();
     if (!ev) return NextResponse.redirect(`${origin}/bookings`);
@@ -43,13 +49,14 @@ export async function GET(request: NextRequest) {
         .from("trainer_evaluations")
         .update({ paid_at: new Date().toISOString(), payment_ref: reference })
         .eq("id", id);
+      await notifyTrainerByProfile(admin, ev.trainer_id, "eval_paid", "New paid evaluation request.", "/trainer/leads", "New evaluation request");
     }
     return NextResponse.redirect(`${origin}/bookings?paid=1`);
   }
 
   const { data: bk } = await admin
     .from("trainer_bookings")
-    .select("id, gross_amount, status")
+    .select("id, gross_amount, status, trainer_id")
     .eq("id", id)
     .single();
   if (!bk) return NextResponse.redirect(`${origin}/bookings`);
@@ -62,6 +69,7 @@ export async function GET(request: NextRequest) {
       .from("trainer_bookings")
       .update({ status: "paid", paid_at: new Date().toISOString(), payment_ref: reference })
       .eq("id", id);
+    await notifyTrainerByProfile(admin, bk.trainer_id, "booking_paid", "A program was booked and paid.", "/trainer/bookings", "New booking");
   }
   return NextResponse.redirect(`${origin}/bookings?paid=1`);
 }
