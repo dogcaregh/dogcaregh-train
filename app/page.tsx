@@ -90,16 +90,15 @@ export default async function Home() {
             </a>
             <p className="mt-3 text-sm text-muted">
               Already a DogCareGH owner?{" "}
-              <a href={`${CARE_APP}/login`} className="text-gold font-semibold hover:underline">
+              <a href="/login?next=/trainers" className="text-gold font-semibold hover:underline">
                 Log in
-              </a>{" "}
-              — you&apos;ll come back here signed in.
+              </a>
             </p>
             <p className="mt-6 text-sm text-muted">
               Are you a dog trainer?{" "}
-              <Link href="/signup" className="text-gold font-semibold hover:underline">
-                Sign up as a trainer
-              </Link>
+              <a href="/login" className="text-gold font-semibold hover:underline">Log in</a>
+              {" "}or{" "}
+              <Link href="/signup" className="text-gold font-semibold hover:underline">sign up</Link>
             </p>
           </div>
         )}

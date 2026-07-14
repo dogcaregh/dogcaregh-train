@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { TrainerNav } from "@/components/trainer-nav";
 import { isAdmin, listAllTrainers } from "@/lib/admin";
 import { setTrainerVetting } from "@/app/actions";
 import { cedis } from "@/lib/pricing";
@@ -15,7 +16,9 @@ export default async function AdminTrainersPage() {
   const pending = trainers.filter((t) => t.vetting_status === "pending").length;
 
   return (
-    <main className="mx-auto max-w-3xl px-5 py-8">
+    <>
+      <TrainerNav />
+      <main className="mx-auto max-w-3xl px-5 py-8">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-gold font-semibold">Admin</p>
@@ -53,7 +56,8 @@ export default async function AdminTrainersPage() {
           ))}
         </div>
       )}
-    </main>
+      </main>
+    </>
   );
 }
 
