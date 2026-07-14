@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { TrainerNav } from "@/components/trainer-nav";
+import { AdminNav } from "@/components/admin-nav";
 import { isAdmin, listAllTrainers } from "@/lib/admin";
 import { setTrainerVetting } from "@/app/actions";
 import { cedis } from "@/lib/pricing";
@@ -17,7 +17,7 @@ export default async function AdminTrainersPage() {
 
   return (
     <>
-      <TrainerNav />
+      <AdminNav />
       <main className="mx-auto max-w-3xl px-5 py-8">
       <div className="flex items-center justify-between">
         <div>

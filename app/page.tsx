@@ -58,8 +58,8 @@ export default async function Home() {
             </div>
             {admin && (
               <div className="mt-3">
-                <a href="/admin/trainers" className="text-sm text-gold font-semibold hover:underline">
-                  Admin · trainer vetting →
+                <a href="/admin" className="text-sm text-gold font-semibold hover:underline">
+                  Admin dashboard →
                 </a>
               </div>
             )}

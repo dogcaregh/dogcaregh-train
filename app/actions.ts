@@ -338,11 +338,64 @@ export async function saveTrainerProfile(formData: FormData) {
   redirect("/trainer");
 }
 
+async function assertAdmin(
+  supabase: Awaited<ReturnType<typeof authed>>["supabase"],
+  userId: string
+) {
+  const { data: me } = await supabase.from("users").select("role").eq("id", userId).maybeSingle();
+  if (me?.role !== "admin") redirect("/");
+}
+
+const BOOKING_STATUSES = ["pending", "confirmed", "paid", "in_progress", "completed_pending", "closed", "cancelled"];
+
+/** Admin: override a booking's status. */
+export async function adminSetBookingStatus(formData: FormData) {
+  const { supabase, user } = await authed();
+  await assertAdmin(supabase, user.id);
+  const status = String(formData.get("status"));
+  if (!BOOKING_STATUSES.includes(status)) redirect("/admin/bookings");
+  await supabase.from("trainer_bookings").update({ status }).eq("id", String(formData.get("booking_id")));
+  revalidatePath("/admin/bookings");
+  redirect("/admin/bookings");
+}
+
+/** Admin: flag/unflag a booking for a (manual) refund + note. */
+export async function adminFlagRefund(formData: FormData) {
+  const { supabase, user } = await authed();
+  await assertAdmin(supabase, user.id);
+  await supabase
+    .from("trainer_bookings")
+    .update({
+      refund_flagged: formData.get("flag") === "on",
+      admin_note: String(formData.get("admin_note") ?? "").trim() || null,
+    })
+    .eq("id", String(formData.get("booking_id")));
+  revalidatePath("/admin/bookings");
+  redirect("/admin/bookings");
+}
+
+/** Admin: process a cash-out — mark paid (with reference) or rejected (with reason). */
+export async function adminProcessCashout(formData: FormData) {
+  const { supabase, user } = await authed();
+  await assertAdmin(supabase, user.id);
+  const action = String(formData.get("action"));
+  if (action !== "paid" && action !== "rejected") redirect("/admin/cashouts");
+  await supabase
+    .from("trainer_cashout_requests")
+    .update({
+      status: action,
+      note: String(formData.get("note") ?? "").trim() || null,
+      paid_at: action === "paid" ? new Date().toISOString() : null,
+    })
+    .eq("id", String(formData.get("cashout_id")));
+  revalidatePath("/admin/cashouts");
+  redirect("/admin/cashouts");
+}
+
 /** Admin-only: set a trainer's vetting status. Role re-checked server-side. */
 export async function setTrainerVetting(formData: FormData) {
   const { supabase, user } = await authed();
-  const { data: me } = await supabase.from("users").select("role").eq("id", user.id).maybeSingle();
-  if (me?.role !== "admin") redirect("/");
+  await assertAdmin(supabase, user.id);
 
   const status = String(formData.get("status"));
   if (!["verified", "rejected", "pending"].includes(status)) redirect("/admin/trainers");
