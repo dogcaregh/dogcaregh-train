@@ -123,7 +123,7 @@ export async function getMyLeads(): Promise<Lead[]> {
       .from("trainer_owner_profiles")
       .select("user_id, goal, budget, neighbourhood")
       .in("user_id", ownerIds),
-    supabase.from("trainer_recommendations").select("evaluation_id").in("evaluation_id", evalIds),
+    supabase.from("trainer_recommendations").select("evaluation_id, status").in("evaluation_id", evalIds),
     dogIds.length
       ? supabase.from("dogs").select("id, name, breed").in("id", dogIds)
       : Promise.resolve({ data: [] as { id: string; name: string; breed: string | null }[] }),
@@ -131,7 +131,8 @@ export async function getMyLeads(): Promise<Lead[]> {
 
   const nameById = new Map((owners ?? []).map((o) => [o.id, o.name]));
   const intakeById = new Map((intakes ?? []).map((i) => [i.user_id, i]));
-  const recoEvalIds = new Set((recos ?? []).map((r) => r.evaluation_id));
+  // A declined recommendation frees the trainer to send a fresh one.
+  const recoEvalIds = new Set((recos ?? []).filter((r) => r.status !== "declined").map((r) => r.evaluation_id));
   const dogById = new Map((dogRows ?? []).map((d) => [d.id, d]));
 
   return evals.map((e): Lead => {

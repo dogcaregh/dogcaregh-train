@@ -1,12 +1,13 @@
 import { OwnerNav } from "@/components/owner-nav";
 import { ConfirmPay } from "@/components/confirm-pay";
+import { DeclineRecommendation } from "@/components/decline-recommendation";
 import { listMyRecommendations } from "@/lib/owner-data";
 import { acceptRecommendation } from "@/app/actions";
 import { cedis, programTotal, totalSessions, multiDogTotal } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
 
-export default async function RecommendationsPage() {
+export default async function RecommendationsPage({ searchParams }: { searchParams: { declined?: string } }) {
   const recs = await listMyRecommendations();
 
   return (
@@ -15,6 +16,12 @@ export default async function RecommendationsPage() {
       <main className="mx-auto max-w-2xl px-5 py-8">
         <p className="text-xs uppercase tracking-[0.2em] text-gold font-semibold">Recommended for you</p>
         <h1 className="mt-1 text-3xl text-espresso">Your recommendations</h1>
+
+        {searchParams.declined && (
+          <div className="mt-4 rounded-xl border border-hairline bg-cream p-4 text-sm text-walnut">
+            Recommendation declined — the trainer has been notified and can send a revised plan.
+          </div>
+        )}
 
         {recs.length === 0 ? (
           <div className="mt-6 rounded-xl bg-cream border border-hairline p-5 text-sm text-walnut">
@@ -74,32 +81,42 @@ export default async function RecommendationsPage() {
                     </div>
                   </div>
 
-                  <div className="mt-4 flex items-center justify-between">
-                    <a href={`/trainers/${r.trainer_id}`} className="text-xs text-gold font-semibold hover:underline">
-                      View trainer profile →
-                    </a>
-                    {done ? (
+                  {done ? (
+                    <div className="mt-4 flex items-center justify-between">
+                      <a href={`/trainers/${r.trainer_id}`} className="text-xs text-gold font-semibold hover:underline">
+                        View trainer profile →
+                      </a>
                       <span className="text-xs text-muted capitalize">{r.status}</span>
-                    ) : (
-                      <ConfirmPay
-                        triggerLabel="Accept & book"
-                        triggerClassName="rounded-full bg-walnut text-ivory text-sm font-semibold px-5 py-2 hover:bg-mahogany transition-colors"
-                        title={r.name ?? "Recommended program"}
-                        summary={
-                          <ul className="space-y-1.5">
-                            <li className="flex items-center justify-between gap-4"><span className="text-muted">Trainer</span><span className="text-espresso text-right">{r.trainerName}</span></li>
-                            {dogsLabel && <li className="flex items-center justify-between gap-4"><span className="text-muted">{multiDog ? "Dogs" : "Dog"}</span><span className="text-espresso text-right">{dogsLabel}</span></li>}
-                            <li className="flex items-center justify-between gap-4"><span className="text-muted">Sessions</span><span className="text-espresso">{sessions}{multiDog ? ` × ${r.dogCount} dogs` : ""}</span></li>
-                            <li className="flex items-center justify-between border-t border-hairline pt-1.5 mt-1.5"><span className="font-semibold text-espresso">Total</span><span className="font-semibold text-espresso">{cedis(total)}</span></li>
-                          </ul>
-                        }
-                        confirmLabel="Confirm & pay"
-                        pendingText="Booking…"
-                        action={acceptRecommendation}
-                        fields={{ recommendation_id: r.id }}
-                      />
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between">
+                        <a href={`/trainers/${r.trainer_id}`} className="text-xs text-gold font-semibold hover:underline">
+                          View trainer profile →
+                        </a>
+                        <ConfirmPay
+                          triggerLabel="Accept & book"
+                          triggerClassName="rounded-full bg-walnut text-ivory text-sm font-semibold px-5 py-2 hover:bg-mahogany transition-colors"
+                          title={r.name ?? "Recommended program"}
+                          summary={
+                            <ul className="space-y-1.5">
+                              <li className="flex items-center justify-between gap-4"><span className="text-muted">Trainer</span><span className="text-espresso text-right">{r.trainerName}</span></li>
+                              {dogsLabel && <li className="flex items-center justify-between gap-4"><span className="text-muted">{multiDog ? "Dogs" : "Dog"}</span><span className="text-espresso text-right">{dogsLabel}</span></li>}
+                              <li className="flex items-center justify-between gap-4"><span className="text-muted">Sessions</span><span className="text-espresso">{sessions}{multiDog ? ` × ${r.dogCount} dogs` : ""}</span></li>
+                              <li className="flex items-center justify-between border-t border-hairline pt-1.5 mt-1.5"><span className="font-semibold text-espresso">Total</span><span className="font-semibold text-espresso">{cedis(total)}</span></li>
+                            </ul>
+                          }
+                          confirmLabel="Confirm & pay"
+                          pendingText="Booking…"
+                          action={acceptRecommendation}
+                          fields={{ recommendation_id: r.id }}
+                        />
+                      </div>
+                      <div className="mt-2 text-right">
+                        <DeclineRecommendation id={r.id} />
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}

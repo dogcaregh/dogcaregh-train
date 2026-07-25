@@ -380,6 +380,34 @@ export async function acceptRecommendation(formData: FormData) {
   redirect("/bookings?booked=recommendation");
 }
 
+/** Owner declines a recommendation (optionally with a reason). Frees the trainer
+ *  to send a fresh one, and notifies them so they can act. */
+export async function declineRecommendation(formData: FormData) {
+  const { supabase, user } = await authed();
+  const recId = String(formData.get("recommendation_id"));
+  const reason = String(formData.get("reason") ?? "").trim();
+
+  const { data: rec } = await supabase
+    .from("trainer_recommendations")
+    .select("id, trainer_id, owner_id, status")
+    .eq("id", recId)
+    .maybeSingle();
+  if (!rec || rec.owner_id !== user.id || rec.status !== "sent") redirect("/recommendations");
+
+  await supabase.from("trainer_recommendations").update({ status: "declined" }).eq("id", recId);
+
+  const tuid = await trainerUserId(supabase, rec.trainer_id);
+  if (tuid) {
+    const msg = reason
+      ? `An owner declined your recommendation: “${reason.slice(0, 200)}”`
+      : "An owner declined your recommendation.";
+    await notify(supabase, tuid, "recommendation_declined", msg, "/trainer/leads", "Recommendation declined");
+  }
+
+  revalidatePath("/recommendations");
+  redirect("/recommendations?declined=1");
+}
+
 // ── Trainer side ─────────────────────────────────────────────
 
 function splitList(v: FormDataEntryValue | null): string[] {
