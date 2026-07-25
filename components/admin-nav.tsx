@@ -1,28 +1,33 @@
 import { signOutAction } from "@/app/actions";
 import { NotifBell } from "@/components/notif-bell";
+import { NavBar } from "@/components/nav-bar";
+
+const LINKS = [
+  { href: "/admin/trainers", label: "Vetting" },
+  { href: "/admin/users", label: "Users" },
+  { href: "/admin/bookings", label: "Bookings" },
+  { href: "/admin/evaluations", label: "Evaluations" },
+  { href: "/admin/cashouts", label: "Cash-outs" },
+  { href: "/admin/audit", label: "Audit" },
+];
 
 export function AdminNav() {
   return (
-    <header className="border-b border-hairline bg-white/80 backdrop-blur sticky top-0 z-10">
-      <div className="mx-auto max-w-5xl px-5 h-14 flex items-center justify-between">
+    <NavBar
+      brand={
         <a href="/admin" className="flex items-center gap-2 text-espresso font-display text-lg font-semibold">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="" className="h-8 w-8 object-contain" />
           DogTrainerGH <span className="text-gold text-xs align-top">admin</span>
         </a>
-        <nav className="flex items-center gap-5 text-sm">
-          <a href="/admin/trainers" className="text-walnut hover:text-espresso">Vetting</a>
-          <a href="/admin/users" className="text-walnut hover:text-espresso">Users</a>
-          <a href="/admin/bookings" className="text-walnut hover:text-espresso">Bookings</a>
-          <a href="/admin/evaluations" className="text-walnut hover:text-espresso">Evaluations</a>
-          <a href="/admin/cashouts" className="text-walnut hover:text-espresso">Cash-outs</a>
-          <a href="/admin/audit" className="text-walnut hover:text-espresso">Audit</a>
-          <NotifBell />
-          <form action={signOutAction}>
-            <button type="submit" className="text-gold font-semibold hover:underline">Sign out</button>
-          </form>
-        </nav>
-      </div>
-    </header>
+      }
+      links={LINKS}
+      right={<NotifBell />}
+      extra={
+        <form action={signOutAction}>
+          <button type="submit" className="text-gold font-semibold hover:underline">Sign out</button>
+        </form>
+      }
+    />
   );
 }

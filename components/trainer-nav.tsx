@@ -1,33 +1,36 @@
-import { getServerUser } from "@/lib/owner-data";
 import { signOutAction } from "@/app/actions";
 import { NotifBell } from "@/components/notif-bell";
 import { MsgLink } from "@/components/msg-link";
+import { NavBar } from "@/components/nav-bar";
 
-// Plain <a> (full navigation) for auth-gated routes; sign-out is a POST.
-export async function TrainerNav() {
-  const user = await getServerUser();
+const LINKS = [
+  { href: "/trainer/leads", label: "Leads" },
+  { href: "/trainer/programs", label: "Programs" },
+  { href: "/trainer/bookings", label: "Clients" },
+  { href: "/trainer/earnings", label: "Earnings" },
+  { href: "/trainer/profile", label: "Profile" },
+];
+
+export function TrainerNav() {
   return (
-    <header className="border-b border-hairline bg-white/80 backdrop-blur sticky top-0 z-10">
-      <div className="mx-auto max-w-5xl px-5 h-14 flex items-center justify-between">
+    <NavBar
+      brand={
         <a href="/trainer" className="flex items-center gap-2 text-espresso font-display text-lg font-semibold">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="" className="h-8 w-8 object-contain" />
           DogTrainerGH <span className="text-gold text-xs align-top">trainer</span>
         </a>
-        <nav className="flex items-center gap-5 text-sm">
-          <a href="/trainer/leads" className="text-walnut hover:text-espresso">Leads</a>
-          <a href="/trainer/programs" className="text-walnut hover:text-espresso">Programs</a>
-          <a href="/trainer/bookings" className="text-walnut hover:text-espresso">Clients</a>
-          <a href="/trainer/earnings" className="text-walnut hover:text-espresso">Earnings</a>
-          <a href="/trainer/profile" className="text-walnut hover:text-espresso">Profile</a>
+      }
+      links={LINKS}
+      right={<NotifBell />}
+      extra={
+        <>
           <MsgLink href="/trainer/messages" />
-          {user && <span className="hidden sm:inline text-xs text-muted">{user.email}</span>}
-          <NotifBell />
           <form action={signOutAction}>
             <button type="submit" className="text-gold font-semibold hover:underline">Sign out</button>
           </form>
-        </nav>
-      </div>
-    </header>
+        </>
+      }
+    />
   );
 }
