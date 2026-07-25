@@ -647,7 +647,7 @@ export async function saveProgram(formData: FormData) {
     weeks: Math.max(1, Number(formData.get("weeks") || 1)),
     sessions_per_week: Math.max(1, Number(formData.get("sessions_per_week") || 1)),
     price,
-    discount: Math.min(Number(formData.get("discount") || 0), price), // DB: discount <= price
+    discount: Math.min(100, Math.max(0, Number(formData.get("discount") || 0))), // percentage 0–100
     active: true,
   };
 
@@ -728,7 +728,7 @@ export async function sendRecommendation(formData: FormData) {
       sessions_per_week: Number(formData.get("sessions_per_week") || 1),
       weeks: Number(formData.get("weeks") || 1),
       price,
-      discount: Math.min(Number(formData.get("discount") || 0), price),
+      discount: Math.min(100, Math.max(0, Number(formData.get("discount") || 0))), // percentage 0–100
       is_custom: true,
     };
   } else {
