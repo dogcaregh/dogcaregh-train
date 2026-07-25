@@ -23,9 +23,10 @@ export default async function Home() {
     return (
       <main className="min-h-screen">
         {/* Hero */}
-        <section className="mx-auto max-w-3xl px-6 pt-20 pb-14 text-center">
-          <p className="text-xs uppercase tracking-[0.25em] text-gold font-semibold">DogTrainerGH</p>
-          <h1 className="mt-4 font-display text-4xl sm:text-5xl text-espresso leading-tight">
+        <section className="mx-auto max-w-3xl px-6 pt-16 pb-14 text-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="DogTrainerGH" className="mx-auto h-36 w-36 object-contain" />
+          <h1 className="mt-2 font-display text-4xl sm:text-5xl text-espresso leading-tight">
             Managed dog training in Ghana
           </h1>
           <p className="mt-4 text-lg text-walnut max-w-xl mx-auto">

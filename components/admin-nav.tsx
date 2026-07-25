@@ -5,7 +5,9 @@ export function AdminNav() {
   return (
     <header className="border-b border-hairline bg-white/80 backdrop-blur sticky top-0 z-10">
       <div className="mx-auto max-w-5xl px-5 h-14 flex items-center justify-between">
-        <a href="/admin" className="text-espresso font-display text-lg font-semibold">
+        <a href="/admin" className="flex items-center gap-2 text-espresso font-display text-lg font-semibold">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="" className="h-8 w-8 object-contain" />
           DogTrainerGH <span className="text-gold text-xs align-top">admin</span>
         </a>
         <nav className="flex items-center gap-5 text-sm">
