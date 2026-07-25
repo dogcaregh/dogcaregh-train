@@ -93,6 +93,11 @@ export default function TrainerSignup() {
         )}
 
         <p className="mt-6 text-sm text-muted">
+          Already have a DogCareGH account?{" "}
+          <a href="/login" className="text-gold font-semibold hover:underline">Log in</a>{" "}
+          and set up a trainer profile — no need to sign up again.
+        </p>
+        <p className="mt-3 text-sm text-muted">
           <Link href="/" className="text-gold font-semibold hover:underline">
             ← Back
           </Link>

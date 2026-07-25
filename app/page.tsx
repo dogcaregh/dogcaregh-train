@@ -102,7 +102,11 @@ export default async function Home() {
 
         <div className="mt-5 grid gap-2 text-sm">
           <a href="/trainers" className="text-gold font-semibold hover:underline">Find a dog trainer →</a>
-          {trainerOrigin && <a href="/trainer" className="text-gold font-semibold hover:underline">My trainer dashboard →</a>}
+          {trainerOrigin ? (
+            <a href="/trainer" className="text-gold font-semibold hover:underline">My trainer dashboard →</a>
+          ) : (
+            <a href="/trainer" className="text-gold font-semibold hover:underline">Become a trainer →</a>
+          )}
           {admin && <a href="/admin" className="text-gold font-semibold hover:underline">Admin dashboard →</a>}
         </div>
 

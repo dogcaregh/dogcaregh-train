@@ -1,5 +1,4 @@
 import { TrainerNav } from "@/components/trainer-nav";
-import { getServerUser } from "@/lib/owner-data";
 import { getMyTrainerProfile, getMyPrograms, getMyLeads, getMyTrainerBookings, getMyEarnings } from "@/lib/trainer-data";
 import { cedis } from "@/lib/pricing";
 
@@ -9,43 +8,26 @@ const fmt = (iso: string) =>
   new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
 
 export default async function TrainerDashboard() {
-  const [profile, user] = await Promise.all([getMyTrainerProfile(), getServerUser()]);
-  const trainerOrigin = user?.user_metadata?.role === "trainer";
+  const profile = await getMyTrainerProfile();
 
   if (!profile) {
-    // Trainer status is only for accounts that signed up as a trainer.
-    // dogcaregh owners/providers can't self-promote — they sign up separately.
-    if (!trainerOrigin) {
-      return (
-        <>
-          <TrainerNav />
-          <main className="mx-auto max-w-xl px-5 py-16 text-center">
-            <h1 className="text-3xl text-espresso">Trainer accounts are separate</h1>
-            <p className="mt-2 text-muted">
-              Your DogCareGH account is set up as a dog owner here. To offer training, create a dedicated trainer account.
-            </p>
-            <a href="/signup" className="mt-6 inline-block rounded-full bg-mahogany text-ivory text-sm font-semibold px-6 py-3 hover:bg-espresso transition-colors">
-              Sign up as a trainer
-            </a>
-            <p className="mt-4 text-sm text-muted">
-              Looking for training instead?{" "}
-              <a href="/trainers" className="text-gold font-semibold hover:underline">Find a trainer →</a>
-            </p>
-          </main>
-        </>
-      );
-    }
+    // Any signed-in user (owners included) can apply; an admin vets new trainers.
     return (
       <>
         <TrainerNav />
         <main className="mx-auto max-w-xl px-5 py-16 text-center">
           <h1 className="text-3xl text-espresso">Become a trainer</h1>
           <p className="mt-2 text-muted">
-            Set up your profile to appear to owners, receive evaluation requests, and send program recommendations.
+            Set up your profile to appear to owners, receive evaluation requests, and send program
+            recommendations. An admin reviews new trainers before you go live.
           </p>
           <a href="/trainer/profile" className="mt-6 inline-block rounded-full bg-mahogany text-ivory text-sm font-semibold px-6 py-3 hover:bg-espresso transition-colors">
             Set up my profile
           </a>
+          <p className="mt-4 text-sm text-muted">
+            Looking for training instead?{" "}
+            <a href="/trainers" className="text-gold font-semibold hover:underline">Find a trainer →</a>
+          </p>
         </main>
       </>
     );

@@ -449,20 +449,22 @@ export async function saveTrainerProfile(formData: FormData) {
   // multi_dog_discount is applied on top; retried away if the column isn't there yet.
   const withDiscount = { ...base, multi_dog_discount: multiDogDiscount };
 
-  // Provisioning rule: trainer status is granted ONLY via direct sign-up on
-  // the trainer app (/signup stamps user_metadata.role = 'trainer'). A
-  // dogcaregh owner/provider account is never auto-promoted. Existing trainer
-  // profiles are grandfathered (edits allowed); only CREATION is gated.
+  // Provisioning: any signed-in user can apply to be a trainer — including an
+  // existing DogCareGH owner. The vetting_status='pending' gate (admin approval
+  // in /admin/trainers) is what controls discoverability, not the account's
+  // origin. Nothing here makes a trainer visible without that approval.
   const existing = await myTrainerProfileId(supabase, user.id);
-  const trainerOrigin = user.user_metadata?.role === "trainer";
   if (existing) {
     const { error } = await supabase.from("trainer_profiles").update(withDiscount).eq("user_id", user.id);
     if (error) await supabase.from("trainer_profiles").update(base).eq("user_id", user.id);
-  } else if (trainerOrigin) {
+  } else {
     const { error } = await supabase.from("trainer_profiles").insert({ ...withDiscount, vetting_status: "pending" });
     if (error) await supabase.from("trainer_profiles").insert({ ...base, vetting_status: "pending" });
-  } else {
-    redirect("/trainer"); // not a trainer account → blocked
+    // Stamp this account as trainer-origin so trainer-facing UI treats it as one
+    // (landing next-action, notifications nav). One account can be owner + trainer.
+    if (user.user_metadata?.role !== "trainer") {
+      await supabase.auth.updateUser({ data: { ...user.user_metadata, role: "trainer" } });
+    }
   }
 
   // One account can be both owner and trainer.

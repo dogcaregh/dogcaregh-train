@@ -124,6 +124,10 @@ export default async function OwnerDashboard() {
           <a href="/trainers" className="rounded-full bg-espresso text-ivory text-sm font-semibold px-5 py-2.5 hover:bg-mahogany transition-colors">Find a trainer →</a>
           {dogs.length === 0 && <a href="/dogs" className="rounded-full border border-hairline text-walnut text-sm font-semibold px-5 py-2.5 hover:border-gold transition-colors">Add your dog</a>}
         </div>
+        <p className="mt-4 text-xs text-muted">
+          Are you a dog trainer?{" "}
+          <a href="/trainer" className="text-gold font-semibold hover:underline">Set up a trainer profile →</a>
+        </p>
       </main>
     </>
   );
