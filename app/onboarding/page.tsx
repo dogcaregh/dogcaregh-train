@@ -1,4 +1,5 @@
 import { OwnerNav } from "@/components/owner-nav";
+import { Stepper } from "@/components/stepper";
 import { getMyOwnerProfile, getMyDogs } from "@/lib/owner-data";
 import { saveOwnerProfile } from "@/app/actions";
 
@@ -27,6 +28,7 @@ export default async function Onboarding() {
         <p className="mt-2 text-sm text-muted">
           Nothing is asked twice — your answers rank the right trainers first.
         </p>
+        <Stepper current={dogs.length === 0 ? 1 : 2} />
 
         {dogs.length === 0 ? (
           <div className="mt-8 rounded-xl bg-cream border border-hairline p-5 text-sm text-walnut">

@@ -1,5 +1,5 @@
 import { OwnerNav } from "@/components/owner-nav";
-import { getServerUser } from "@/lib/owner-data";
+import { getServerUser, getMyOwnerProfile } from "@/lib/owner-data";
 import { listMyRecommendations, listMyBookings, listMyEvaluations, getMyDogs, relName } from "@/lib/owner-data";
 import { cedis } from "@/lib/pricing";
 
@@ -9,14 +9,21 @@ const fmt = (iso: string) =>
   new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
 
 export default async function OwnerDashboard() {
-  const [user, recs, bookings, evals, dogs] = await Promise.all([
+  const [user, recs, bookings, evals, dogs, profile] = await Promise.all([
     getServerUser(),
     listMyRecommendations(),
     listMyBookings(),
     listMyEvaluations(),
     getMyDogs(),
+    getMyOwnerProfile(),
   ]);
   const firstName = ((user?.user_metadata?.name as string) || user?.email || "there").split(" ")[0];
+
+  // First-run funnel: add a dog → answer questions → book an evaluation.
+  const step1 = dogs.length > 0;
+  const step2 = !!profile && !!(profile.goal || profile.neighbourhood || profile.budget != null);
+  const step3 = evals.length > 0 || bookings.length > 0;
+  const setupDone = step1 && step2 && step3;
 
   const pendingRecs = recs.filter((r) => r.status === "sent");
   const active = bookings.filter((b) => !["closed", "cancelled"].includes(b.status));
@@ -35,6 +42,19 @@ export default async function OwnerDashboard() {
       <main className="mx-auto max-w-4xl px-5 py-8">
         <h1 className="text-3xl text-espresso">Hi {firstName} 🐾</h1>
         <p className="mt-1 text-sm text-muted">Here&apos;s what&apos;s happening with your dog&apos;s training.</p>
+
+        {/* First-run checklist — guides new owners to their first booking */}
+        {!setupDone && (
+          <section className="mt-6 rounded-2xl border border-gold/40 bg-[rgba(185,138,50,0.06)] p-5">
+            <p className="text-sm font-semibold text-espresso">Get started</p>
+            <p className="mt-0.5 text-xs text-muted">Three quick steps to book your first training.</p>
+            <ol className="mt-3 grid gap-2">
+              <ChecklistItem done={step1} label="Add your dog" href="/dogs?next=/onboarding" />
+              <ChecklistItem done={step2} label="Tell us about your dog" href="/onboarding" />
+              <ChecklistItem done={step3} label="Book an evaluation" href="/trainers" />
+            </ol>
+          </section>
+        )}
 
         {/* Action needed */}
         {pendingRecs.length > 0 && (
@@ -107,6 +127,19 @@ export default async function OwnerDashboard() {
       </main>
     </>
   );
+}
+
+function ChecklistItem({ done, label, href }: { done: boolean; label: string; href: string }) {
+  const inner = (
+    <div className="flex items-center gap-3 rounded-xl bg-white border border-hairline px-4 py-3">
+      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${done ? "bg-gold text-ivory" : "border border-hairline text-muted"}`}>
+        {done ? "✓" : ""}
+      </span>
+      <span className={done ? "text-sm text-muted line-through" : "text-sm text-espresso font-semibold"}>{label}</span>
+      {!done && <span className="ml-auto text-xs text-gold font-semibold">Do this →</span>}
+    </div>
+  );
+  return <li>{done ? inner : <a href={href}>{inner}</a>}</li>;
 }
 
 function Stat({ label, value, href }: { label: string; value: number; href: string }) {

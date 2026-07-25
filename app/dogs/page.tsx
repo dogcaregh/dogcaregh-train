@@ -1,6 +1,7 @@
 import { OwnerNav } from "@/components/owner-nav";
 import { DogCard } from "@/components/dog-card";
 import { AddDogForm } from "@/components/add-dog-form";
+import { Stepper } from "@/components/stepper";
 import { getMyDogs } from "@/lib/owner-data";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +24,7 @@ export default async function DogsPage({
         <p className="mt-1 text-sm text-muted">
           Bookings are made per dog. Your DogCareGH dogs show here too — it&apos;s the same profile.
         </p>
+        {next === "/onboarding" && <Stepper current={1} />}
 
         {okText && (
           <div className="mt-4 rounded-xl border border-gold/40 bg-[rgba(185,138,50,0.10)] p-4 text-sm text-walnut">✓ {okText}</div>
