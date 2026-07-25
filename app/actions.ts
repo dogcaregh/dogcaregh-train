@@ -555,13 +555,39 @@ export async function setTrainerVetting(formData: FormData) {
 
   const status = String(formData.get("status"));
   if (!["verified", "rejected", "pending"].includes(status)) redirect("/admin/trainers");
+  const reason = String(formData.get("reason") ?? "").trim();
 
   const trainerId = String(formData.get("trainer_id"));
   await supabase.from("trainer_profiles").update({ vetting_status: status }).eq("id", trainerId);
 
   if (status !== "pending") {
     const tuid = await trainerUserId(supabase, trainerId);
-    if (tuid) await notify(supabase, tuid, "vetting", `Your trainer profile was ${status === "verified" ? "approved — you're now discoverable" : "rejected"}.`, "/trainer", "Trainer vetting update");
+    const msg =
+      status === "verified"
+        ? "Your trainer profile was approved — you're now discoverable."
+        : `Your trainer profile was rejected${reason ? `: ${reason}` : ""}.`;
+    if (tuid) await notify(supabase, tuid, "vetting", msg, "/trainer", "Trainer vetting update");
+  }
+
+  revalidatePath("/admin/trainers");
+  redirect("/admin/trainers");
+}
+
+/** Admin-only: pause/reactivate a trainer without changing their vetting status.
+ *  A paused (active=false) trainer stops appearing in discovery. */
+export async function setTrainerActive(formData: FormData) {
+  const { supabase, user } = await authed();
+  await assertAdmin(supabase, user.id);
+  const trainerId = String(formData.get("trainer_id"));
+  const active = formData.get("active") === "on";
+  await supabase.from("trainer_profiles").update({ active }).eq("id", trainerId);
+
+  const tuid = await trainerUserId(supabase, trainerId);
+  if (tuid) {
+    const msg = active
+      ? "Your trainer profile is active again — you're discoverable to owners."
+      : "Your trainer profile was paused by an admin — you won't appear to owners until it's reactivated.";
+    await notify(supabase, tuid, "vetting", msg, "/trainer", "Trainer status update");
   }
 
   revalidatePath("/admin/trainers");

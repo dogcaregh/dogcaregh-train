@@ -80,26 +80,71 @@ export async function adminListCashouts() {
     .sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9));
 }
 
-/** Small counts for the hub. */
+/** Operational + finance overview for the admin hub. */
 export async function adminOverview() {
   const { supabase } = await requireUser();
-  const [pv, pc, bk, us] = await Promise.all([
+  const round = (n: number) => Math.round(n * 100) / 100;
+
+  const [pv, us, bookingsRes, evalsRes, cashoutsRes] = await Promise.all([
     supabase.from("trainer_profiles").select("id", { count: "exact", head: true }).eq("vetting_status", "pending"),
-    supabase.from("trainer_cashout_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
-    supabase.from("trainer_bookings").select("id", { count: "exact", head: true }),
     supabase.from("users").select("id", { count: "exact", head: true }),
+    supabase.from("trainer_bookings").select("gross_amount, commission_amount, refund_flagged, status"),
+    supabase.from("trainer_evaluations").select("fee, trainer_payout, paid_at, status"),
+    supabase.from("trainer_cashout_requests").select("amount, status"),
   ]);
+
+  // GMV + commission accrue once a booking/evaluation is paid.
+  const bookings = (bookingsRes.data ?? []) as { gross_amount: number; commission_amount: number; refund_flagged: boolean; status: string }[];
+  let gmv = 0, commission = 0, flaggedRefunds = 0;
+  for (const b of bookings) {
+    if (b.refund_flagged) flaggedRefunds++;
+    if (!["pending", "cancelled"].includes(b.status)) {
+      gmv += Number(b.gross_amount);
+      commission += Number(b.commission_amount);
+    }
+  }
+
+  const evals = (evalsRes.data ?? []) as { fee: number; trainer_payout: number; paid_at: string | null; status: string }[];
+  let stalledEvals = 0;
+  for (const e of evals) {
+    if (!e.paid_at) continue;
+    gmv += Number(e.fee);
+    commission += Number(e.fee) - Number(e.trainer_payout);
+    if (e.status === "requested") stalledEvals++; // paid but the trainer never scheduled it
+  }
+
+  const cashouts = (cashoutsRes.data ?? []) as { amount: number; status: string }[];
+  let pendingCashoutAmount = 0, paidOut = 0, pendingCashouts = 0;
+  for (const c of cashouts) {
+    if (c.status === "pending") { pendingCashoutAmount += Number(c.amount); pendingCashouts++; }
+    else if (c.status === "paid") paidOut += Number(c.amount);
+  }
+
   return {
     pendingVettings: pv.count ?? 0,
-    pendingCashouts: pc.count ?? 0,
-    bookings: bk.count ?? 0,
+    pendingCashouts,
+    bookings: bookings.length,
     users: us.count ?? 0,
+    gmv: round(gmv),
+    commission: round(commission),
+    pendingCashoutAmount: round(pendingCashoutAmount),
+    paidOut: round(paidOut),
+    flaggedRefunds,
+    stalledEvals,
   };
 }
 
 export type AdminTrainer = {
   id: string;
   specialties: string[];
+  breeds: string[];
+  neighbourhoods: string[];
+  methods: string | null;
+  credentials: string | null;
+  years_experience: number | null;
+  bio: string | null;
+  avatar_url: string | null;
+  gallery_photos: string[];
   eval_fee: number;
   vetting_status: string;
   active: boolean;
@@ -113,7 +158,8 @@ export type AdminTrainer = {
 /** All trainer profiles for the admin queue (admins can read all via RLS). */
 export async function listAllTrainers(): Promise<AdminTrainer[]> {
   const { supabase } = await requireUser();
-  const SEL = "id, specialties, eval_fee, vetting_status, active, created_at, users(name, email)";
+  const SEL =
+    "id, specialties, breeds, neighbourhoods, methods, credentials, years_experience, bio, avatar_url, gallery_photos, eval_fee, vetting_status, active, created_at, users(name, email)";
   // Prefer contact columns; fall back if the migration isn't applied yet.
   const withContact = await supabase.from("trainer_profiles").select(SEL + ", phone, location").order("created_at", { ascending: false });
   const data = withContact.error
@@ -127,6 +173,14 @@ export async function listAllTrainers(): Promise<AdminTrainer[]> {
     return {
       id: row.id as string,
       specialties: (row.specialties as string[]) ?? [],
+      breeds: (row.breeds as string[]) ?? [],
+      neighbourhoods: (row.neighbourhoods as string[]) ?? [],
+      methods: (row.methods as string | null) ?? null,
+      credentials: (row.credentials as string | null) ?? null,
+      years_experience: (row.years_experience as number | null) ?? null,
+      bio: (row.bio as string | null) ?? null,
+      avatar_url: (row.avatar_url as string | null) ?? null,
+      gallery_photos: (row.gallery_photos as string[]) ?? [],
       eval_fee: Number(row.eval_fee),
       vetting_status: row.vetting_status as string,
       active: row.active as boolean,
