@@ -76,6 +76,22 @@ export default async function TrainerDashboard() {
           </div>
         )}
 
+        {programs.length === 0 && (
+          <div className="mt-4 rounded-xl border border-gold/50 bg-[rgba(185,138,50,0.10)] p-4">
+            <p className="text-sm font-semibold text-espresso">
+              {verified ? "You're approved — set up your programs" : "Set up your training programs"}
+            </p>
+            <p className="mt-0.5 text-xs text-walnut">
+              {verified
+                ? "This is your most important next step: programs are what owners book and what you recommend to leads. Add at least one to start taking bookings."
+                : "Programs are what owners book and what you recommend to leads. Add them now so you're ready the moment you're approved."}
+            </p>
+            <a href="/trainer/programs" className="mt-2 inline-block rounded-full bg-mahogany text-ivory text-xs font-semibold px-4 py-2 hover:bg-espresso transition-colors">
+              Add a program →
+            </a>
+          </div>
+        )}
+
         {/* Needs attention */}
         {(openLeads > 0 || toMark > 0) && (
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
