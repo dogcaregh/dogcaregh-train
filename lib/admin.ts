@@ -19,17 +19,67 @@ function name1(rel: unknown): string {
   return (u as { name?: string })?.name ?? "—";
 }
 
-/** Users list (admin reads all via is_admin() RLS). */
-export async function adminListUsers(q?: string) {
+export const USERS_PAGE_SIZE = 50;
+
+/** Users list (admin reads all via is_admin() RLS) — searchable, filtered, paginated. */
+export async function adminListUsers(opts: { q?: string; role?: "admin" | "owner" | "trainer"; page?: number } = {}) {
   const { supabase } = await requireUser();
+  const page = Math.max(1, opts.page ?? 1);
+  const from = (page - 1) * USERS_PAGE_SIZE;
+
   let query = supabase
     .from("users")
-    .select("id, name, email, role, is_owner, is_trainer, created_at")
+    .select("id, name, email, role, is_owner, is_trainer, created_at", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .range(from, from + USERS_PAGE_SIZE - 1);
+  if (opts.q && opts.q.trim()) query = query.or(`name.ilike.%${opts.q.trim()}%,email.ilike.%${opts.q.trim()}%`);
+  if (opts.role === "admin") query = query.eq("role", "admin");
+  else if (opts.role === "owner") query = query.eq("is_owner", true);
+  else if (opts.role === "trainer") query = query.eq("is_trainer", true);
+
+  const { data, count } = await query;
+  return { rows: data ?? [], total: count ?? 0, page, pageSize: USERS_PAGE_SIZE };
+}
+
+/** One user's full picture for the admin drill-in (read-only). */
+export async function adminGetUser(id: string) {
+  const { supabase } = await requireUser();
+  const [{ data: user }, { data: dogs }, { data: bookings }, { data: trainer }, { data: evals }] = await Promise.all([
+    supabase.from("users").select("id, name, email, role, is_owner, is_trainer, created_at").eq("id", id).maybeSingle(),
+    supabase.from("dogs").select("id, name, breed").eq("owner_id", id),
+    supabase
+      .from("trainer_bookings")
+      .select("id, status, gross_amount, created_at, trainer_profiles(users(name))")
+      .eq("owner_id", id)
+      .order("created_at", { ascending: false }),
+    supabase.from("trainer_profiles").select("id, vetting_status, active, eval_fee, phone, location").eq("user_id", id).maybeSingle(),
+    supabase.from("trainer_evaluations").select("id, status, fee, created_at, trainer_profiles(users(name))").eq("owner_id", id).order("created_at", { ascending: false }),
+  ]);
+  if (!user) return null;
+  return {
+    user,
+    dogs: dogs ?? [],
+    bookings: (bookings ?? []).map((b) => ({ ...b, trainerName: name1(b.trainer_profiles) })),
+    evaluations: (evals ?? []).map((e) => ({ ...e, trainerName: name1(e.trainer_profiles) })),
+    trainer: (trainer as { id: string; vetting_status: string; active: boolean; eval_fee: number; phone: string | null; location: string | null } | null) ?? null,
+  };
+}
+
+/** Recent admin audit-log entries (empty if the table isn't there yet). */
+export async function adminListAuditLog() {
+  const { supabase } = await requireUser();
+  const { data } = await supabase
+    .from("admin_actions")
+    .select("id, action, detail, created_at, users:admin_id(name, email)")
     .order("created_at", { ascending: false })
     .limit(200);
-  if (q && q.trim()) query = query.or(`name.ilike.%${q.trim()}%,email.ilike.%${q.trim()}%`);
-  const { data } = await query;
-  return data ?? [];
+  return (data ?? []).map((a) => ({
+    id: a.id as string,
+    action: a.action as string,
+    detail: (a.detail as string | null) ?? null,
+    created_at: a.created_at as string,
+    adminName: name1(a),
+  }));
 }
 
 export const BOOKINGS_PAGE_SIZE = 25;

@@ -488,6 +488,16 @@ async function assertAdmin(
   if (me?.role !== "admin") redirect("/");
 }
 
+/** Append to the admin audit log (best-effort; a no-op if the table isn't there yet). */
+async function logAdmin(
+  supabase: Awaited<ReturnType<typeof authed>>["supabase"],
+  adminId: string,
+  action: string,
+  detail: string
+) {
+  await supabase.from("admin_actions").insert({ admin_id: adminId, action, detail });
+}
+
 const BOOKING_STATUSES = ["pending", "confirmed", "paid", "in_progress", "completed_pending", "closed", "cancelled"];
 
 /** Admin: override a booking's status. */
@@ -498,6 +508,7 @@ export async function adminSetBookingStatus(formData: FormData) {
   if (!BOOKING_STATUSES.includes(status)) redirect("/admin/bookings");
   const bookingId = String(formData.get("booking_id"));
   await supabase.from("trainer_bookings").update({ status }).eq("id", bookingId);
+  await logAdmin(supabase, user.id, "booking_status", `${bookingId} → ${status}`);
   const { data: bk } = await supabase.from("trainer_bookings").select("owner_id, trainer_id").eq("id", bookingId).maybeSingle();
   if (bk) {
     const label = status.replace(/_/g, " ");
@@ -513,13 +524,14 @@ export async function adminSetBookingStatus(formData: FormData) {
 export async function adminFlagRefund(formData: FormData) {
   const { supabase, user } = await authed();
   await assertAdmin(supabase, user.id);
+  const bookingId = String(formData.get("booking_id"));
+  const flagged = formData.get("flag") === "on";
+  const note = String(formData.get("admin_note") ?? "").trim() || null;
   await supabase
     .from("trainer_bookings")
-    .update({
-      refund_flagged: formData.get("flag") === "on",
-      admin_note: String(formData.get("admin_note") ?? "").trim() || null,
-    })
-    .eq("id", String(formData.get("booking_id")));
+    .update({ refund_flagged: flagged, admin_note: note })
+    .eq("id", bookingId);
+  await logAdmin(supabase, user.id, "refund_flag", `${bookingId} ${flagged ? "flagged" : "cleared"}${note ? `: ${note}` : ""}`);
   revalidatePath("/admin/bookings");
   redirect("/admin/bookings");
 }
@@ -534,6 +546,7 @@ export async function adminNudgeTrainerEval(formData: FormData) {
     const tuid = await trainerUserId(supabase, ev.trainer_id);
     if (tuid) await notify(supabase, tuid, "eval_reminder", "Reminder: you have a paid evaluation waiting to be scheduled.", "/trainer/leads", "Evaluation waiting");
   }
+  await logAdmin(supabase, user.id, "eval_nudge", evalId);
   revalidatePath("/admin/evaluations");
   redirect("/admin/evaluations?nudged=1");
 }
@@ -545,19 +558,25 @@ export async function adminProcessCashout(formData: FormData) {
   const action = String(formData.get("action"));
   if (action !== "paid" && action !== "rejected") redirect("/admin/cashouts");
   const cashoutId = String(formData.get("cashout_id"));
-  const { data: co } = await supabase.from("trainer_cashout_requests").select("trainer_id, amount").eq("id", cashoutId).maybeSingle();
-  await supabase
+  const { data: co } = await supabase.from("trainer_cashout_requests").select("trainer_id, amount, status").eq("id", cashoutId).maybeSingle();
+  if (!co || co.status !== "pending") redirect("/admin/cashouts"); // already processed
+
+  // Race-safe: only transition if it's still pending (guards double-submit / stale tab).
+  const { data: updated } = await supabase
     .from("trainer_cashout_requests")
     .update({
       status: action,
       note: String(formData.get("note") ?? "").trim() || null,
       paid_at: action === "paid" ? new Date().toISOString() : null,
     })
-    .eq("id", cashoutId);
-  if (co) {
-    const tuid = await trainerUserId(supabase, co.trainer_id);
-    if (tuid) await notify(supabase, tuid, "cashout_processed", `Your cash-out of ${cedis(Number(co.amount))} was ${action}.`, "/trainer/earnings", "Cash-out update");
-  }
+    .eq("id", cashoutId)
+    .eq("status", "pending")
+    .select("id");
+  if (!updated || updated.length === 0) redirect("/admin/cashouts");
+
+  await logAdmin(supabase, user.id, "cashout", `${cashoutId} → ${action} (${cedis(Number(co.amount))})`);
+  const tuid = await trainerUserId(supabase, co.trainer_id);
+  if (tuid) await notify(supabase, tuid, "cashout_processed", `Your cash-out of ${cedis(Number(co.amount))} was ${action}.`, "/trainer/earnings", "Cash-out update");
   revalidatePath("/admin/cashouts");
   redirect("/admin/cashouts");
 }
@@ -573,6 +592,7 @@ export async function setTrainerVetting(formData: FormData) {
 
   const trainerId = String(formData.get("trainer_id"));
   await supabase.from("trainer_profiles").update({ vetting_status: status }).eq("id", trainerId);
+  await logAdmin(supabase, user.id, "vetting", `${trainerId} → ${status}${reason ? `: ${reason}` : ""}`);
 
   if (status !== "pending") {
     const tuid = await trainerUserId(supabase, trainerId);
@@ -595,6 +615,7 @@ export async function setTrainerActive(formData: FormData) {
   const trainerId = String(formData.get("trainer_id"));
   const active = formData.get("active") === "on";
   await supabase.from("trainer_profiles").update({ active }).eq("id", trainerId);
+  await logAdmin(supabase, user.id, "trainer_active", `${trainerId} → ${active ? "active" : "paused"}`);
 
   const tuid = await trainerUserId(supabase, trainerId);
   if (tuid) {

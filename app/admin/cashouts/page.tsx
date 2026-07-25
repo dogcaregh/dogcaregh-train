@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { AdminNav } from "@/components/admin-nav";
+import { SubmitButton } from "@/components/submit-button";
 import { isAdmin, adminListCashouts } from "@/lib/admin";
 import { adminProcessCashout } from "@/app/actions";
 import { cedis } from "@/lib/pricing";
@@ -36,8 +37,12 @@ export default async function AdminCashouts() {
                     <input type="hidden" name="cashout_id" value={c.id} />
                     <input name="note" placeholder="reference / reason"
                       className="flex-1 min-w-[160px] rounded-lg border border-hairline bg-ivory px-2 py-1.5 text-sm text-espresso outline-none focus:border-gold" />
-                    <button name="action" value="paid" className="rounded-full bg-mahogany text-ivory text-xs font-semibold px-4 py-2 hover:bg-espresso transition-colors">Mark paid</button>
-                    <button name="action" value="rejected" className="rounded-full border border-hairline text-walnut text-xs font-semibold px-4 py-2 hover:border-gold transition-colors">Reject</button>
+                    <SubmitButton name="action" value="paid" pendingText="…" className="rounded-full bg-mahogany text-ivory text-xs font-semibold px-4 py-2 hover:bg-espresso transition-colors disabled:opacity-60">
+                      Mark paid
+                    </SubmitButton>
+                    <SubmitButton name="action" value="rejected" pendingText="…" className="rounded-full border border-hairline text-walnut text-xs font-semibold px-4 py-2 hover:border-gold transition-colors disabled:opacity-60">
+                      Reject
+                    </SubmitButton>
                   </form>
                 ) : (
                   c.note && <p className="mt-2 text-xs text-muted">{c.status === "paid" ? "Ref" : "Reason"}: {c.note}</p>
