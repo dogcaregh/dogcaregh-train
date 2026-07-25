@@ -4,6 +4,7 @@ import {
   totalSessions,
   splitAmount,
   perSessionRelease,
+  multiDogTotal,
   cedis,
   COMMISSION_RATE,
 } from "./pricing";
@@ -104,6 +105,36 @@ describe("perSessionRelease", () => {
     const per = perSessionRelease(100, 3);
     expect(per * 3).toBeCloseTo(99.99, 2);
     expect(per * 3).not.toBe(100);
+  });
+});
+
+describe("multiDogTotal", () => {
+  it("charges per dog", () => {
+    expect(multiDogTotal(1000, 1, 0)).toBe(1000);
+    expect(multiDogTotal(1000, 2, 0)).toBe(2000);
+    expect(multiDogTotal(1000, 3, 0)).toBe(3000);
+  });
+
+  it("applies the multi-dog discount only at 2+ dogs", () => {
+    expect(multiDogTotal(1000, 1, 10)).toBe(1000); // single dog: no discount even if set
+    expect(multiDogTotal(1000, 2, 10)).toBe(1800); // 2000 × 0.90
+    expect(multiDogTotal(1000, 3, 10)).toBe(2700); // 3000 × 0.90
+    expect(multiDogTotal(2295, 2, 15)).toBe(3901.5); // 4590 × 0.85
+  });
+
+  it("treats a null/undefined discount as zero", () => {
+    expect(multiDogTotal(1000, 2, undefined as unknown as number)).toBe(2000);
+    expect(multiDogTotal(1000, 2, NaN)).toBe(2000);
+  });
+
+  it("guards a zero/negative dog count as a single dog (no discount)", () => {
+    expect(multiDogTotal(1000, 0, 10)).toBe(1000);
+    expect(multiDogTotal(1000, -3, 10)).toBe(1000);
+  });
+
+  it("rounds to 2 decimals", () => {
+    expect(multiDogTotal(33.33, 2, 0)).toBe(66.66);
+    expect(multiDogTotal(100, 2, 33)).toBe(134); // 200 × 0.67
   });
 });
 

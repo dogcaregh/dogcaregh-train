@@ -6,7 +6,7 @@ import { headers } from "next/headers";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { completedBookingExists } from "@/lib/owner-data";
 import { trainerEarnings } from "@/lib/trainer-data";
-import { programTotal, totalSessions, splitAmount, perSessionRelease, cedis } from "@/lib/pricing";
+import { programTotal, totalSessions, splitAmount, perSessionRelease, multiDogTotal, cedis } from "@/lib/pricing";
 import { paystackEnabled, initTransaction, stubCheckoutAllowed } from "@/lib/paystack";
 import { notify } from "@/lib/notify";
 
@@ -145,26 +145,38 @@ async function ownerDogId(
 }
 
 /**
- * Dog for this booking: the one picked in the form if it belongs to the owner,
- * else the onboarding default. Ownership is re-checked server-side so a forged
- * dog_id can't attach someone else's dog.
+ * Dogs for this booking: the ones picked in the form that belong to the owner
+ * (order preserved, de-duped), else the onboarding default as a single-dog
+ * fallback. Ownership is re-checked server-side so a forged dog id can't attach
+ * someone else's dog. Returns [] when the owner has no usable dog.
  */
-async function resolveDogId(
+async function resolveDogIds(
   supabase: Awaited<ReturnType<typeof authed>>["supabase"],
   userId: string,
-  picked: FormDataEntryValue | null
-): Promise<string | null> {
-  const candidate = String(picked ?? "").trim();
-  if (candidate) {
-    const { data } = await supabase
-      .from("dogs")
-      .select("id")
-      .eq("id", candidate)
-      .eq("owner_id", userId)
-      .maybeSingle();
-    if (data) return data.id;
+  picked: FormDataEntryValue[]
+): Promise<string[]> {
+  const candidates = [...new Set(picked.map((p) => String(p ?? "").trim()).filter(Boolean))];
+  if (candidates.length) {
+    const { data } = await supabase.from("dogs").select("id").eq("owner_id", userId).in("id", candidates);
+    const owned = new Set((data ?? []).map((d) => d.id));
+    const valid = candidates.filter((id) => owned.has(id)); // keep the picked order
+    if (valid.length) return valid;
   }
-  return ownerDogId(supabase, userId);
+  const fallback = await ownerDogId(supabase, userId);
+  return fallback ? [fallback] : [];
+}
+
+/** The trainer's multi-dog discount %. 0 if unset or the column isn't there yet. */
+async function trainerMultiDogDiscount(
+  supabase: Awaited<ReturnType<typeof authed>>["supabase"],
+  trainerProfileId: string
+): Promise<number> {
+  const { data } = await supabase
+    .from("trainer_profiles")
+    .select("multi_dog_discount")
+    .eq("id", trainerProfileId)
+    .maybeSingle();
+  return data?.multi_dog_discount != null ? Number(data.multi_dog_discount) : 0;
 }
 
 export async function bookEvaluation(formData: FormData) {
@@ -179,25 +191,21 @@ export async function bookEvaluation(formData: FormData) {
     .maybeSingle();
   if (!tp) redirect("/trainers");
 
-  // Bookings are per-dog. Use the picked dog (ownership re-checked) or default.
-  const dogId = await resolveDogId(supabase, user.id, formData.get("dog_id"));
-  if (!dogId) redirect(`/dogs?next=${encodeURIComponent(`/trainers/${trainerId}`)}`);
+  // One evaluation can cover several dogs at a single fee. Ownership re-checked;
+  // the first dog is kept in dog_id (primary) for backward-compatible reads.
+  const dogIds = await resolveDogIds(supabase, user.id, formData.getAll("dog_ids"));
+  if (dogIds.length === 0) redirect(`/dogs?next=${encodeURIComponent(`/trainers/${trainerId}`)}`);
 
-  const fee = Number(tp.eval_fee);
+  const fee = Number(tp.eval_fee); // single fee regardless of how many dogs
   const { payout } = splitAmount(fee);
-  const { data: ev } = await supabase
-    .from("trainer_evaluations")
-    .insert({
-      owner_id: user.id,
-      trainer_id: trainerId,
-      program_id: programId,
-      dog_id: dogId,
-      fee,
-      trainer_payout: payout,
-      status: "requested",
-    })
-    .select("id")
-    .single();
+  const ev = await insertEvaluation(supabase, {
+    owner_id: user.id,
+    trainer_id: trainerId,
+    program_id: programId,
+    fee,
+    trainer_payout: payout,
+    status: "requested",
+  }, dogIds);
   if (!ev) redirect("/trainers");
 
   const url = await beginCheckout("evaluation", ev.id, fee, user.email ?? "");
@@ -240,10 +248,13 @@ export async function rebookProgram(formData: FormData) {
     redirect(`/trainers/${prog.trainer_id}`);
   }
 
-  const dogId = await resolveDogId(supabase, user.id, formData.get("dog_id"));
-  if (!dogId) redirect(`/dogs?next=${encodeURIComponent(`/trainers/${prog.trainer_id}`)}`);
+  const dogIds = await resolveDogIds(supabase, user.id, formData.getAll("dog_ids"));
+  if (dogIds.length === 0) redirect(`/dogs?next=${encodeURIComponent(`/trainers/${prog.trainer_id}`)}`);
 
-  const total = programTotal(Number(prog.price), prog.sessions_per_week, prog.weeks, Number(prog.discount));
+  // Per-dog pricing with the trainer's multi-dog discount. Sessions are shared
+  // (the dogs are trained together each visit), so the session count is unchanged.
+  const perDog = programTotal(Number(prog.price), prog.sessions_per_week, prog.weeks, Number(prog.discount));
+  const total = multiDogTotal(perDog, dogIds.length, await trainerMultiDogDiscount(supabase, prog.trainer_id));
   const count = totalSessions(prog.sessions_per_week, prog.weeks);
 
   const booking = await createBookingWithSessions(supabase, {
@@ -251,7 +262,7 @@ export async function rebookProgram(formData: FormData) {
     trainerId: prog.trainer_id,
     programId: prog.id,
     recommendationId: null,
-    dogId,
+    dogIds,
     sessionsTotal: count,
     gross: total,
   });
@@ -279,14 +290,12 @@ export async function acceptRecommendation(formData: FormData) {
     .maybeSingle();
   if (!rec || rec.status !== "sent") redirect("/recommendations");
 
-  // The booking is for the same dog the evaluation was about.
-  const { data: ev } = await supabase
-    .from("trainer_evaluations")
-    .select("dog_id")
-    .eq("id", rec.evaluation_id)
-    .maybeSingle();
+  // The booking covers the same dog(s) the evaluation was about.
+  const dogIds = await evaluationDogIds(supabase, rec.evaluation_id);
 
-  const total = programTotal(Number(rec.price), rec.sessions_per_week, rec.weeks, Number(rec.discount));
+  // Per-dog pricing with the trainer's multi-dog discount; sessions are shared.
+  const perDog = programTotal(Number(rec.price), rec.sessions_per_week, rec.weeks, Number(rec.discount));
+  const total = multiDogTotal(perDog, Math.max(dogIds.length, 1), await trainerMultiDogDiscount(supabase, rec.trainer_id));
   const count = totalSessions(rec.sessions_per_week, rec.weeks);
 
   const booking = await createBookingWithSessions(supabase, {
@@ -294,7 +303,7 @@ export async function acceptRecommendation(formData: FormData) {
     trainerId: rec.trainer_id,
     programId: null,
     recommendationId: rec.id,
-    dogId: ev?.dog_id ?? null,
+    dogIds,
     sessionsTotal: count,
     gross: total,
   });
@@ -337,6 +346,7 @@ async function myTrainerProfileId(
 export async function saveTrainerProfile(formData: FormData) {
   const { supabase, user } = await authed();
   const evalFee = Math.max(300, Number(formData.get("eval_fee") || 300)); // DB floor is ₵300
+  const multiDogDiscount = Math.min(100, Math.max(0, Number(formData.get("multi_dog_discount") || 0)));
 
   const base = {
     user_id: user.id,
@@ -350,6 +360,8 @@ export async function saveTrainerProfile(formData: FormData) {
     eval_fee: evalFee,
     active: true,
   };
+  // multi_dog_discount is applied on top; retried away if the column isn't there yet.
+  const withDiscount = { ...base, multi_dog_discount: multiDogDiscount };
 
   // Provisioning rule: trainer status is granted ONLY via direct sign-up on
   // the trainer app (/signup stamps user_metadata.role = 'trainer'). A
@@ -358,9 +370,11 @@ export async function saveTrainerProfile(formData: FormData) {
   const existing = await myTrainerProfileId(supabase, user.id);
   const trainerOrigin = user.user_metadata?.role === "trainer";
   if (existing) {
-    await supabase.from("trainer_profiles").update(base).eq("user_id", user.id);
+    const { error } = await supabase.from("trainer_profiles").update(withDiscount).eq("user_id", user.id);
+    if (error) await supabase.from("trainer_profiles").update(base).eq("user_id", user.id);
   } else if (trainerOrigin) {
-    await supabase.from("trainer_profiles").insert({ ...base, vetting_status: "pending" });
+    const { error } = await supabase.from("trainer_profiles").insert({ ...withDiscount, vetting_status: "pending" });
+    if (error) await supabase.from("trainer_profiles").insert({ ...base, vetting_status: "pending" });
   } else {
     redirect("/trainer"); // not a trainer account → blocked
   }
@@ -751,12 +765,42 @@ export async function requestCashout(formData: FormData) {
   redirect("/trainer/earnings?requested=1");
 }
 
+/** Insert an evaluation, setting dog_id (primary) + dog_ids (full set). Falls
+ *  back to dog_id-only if the dog_ids column isn't there yet. */
+async function insertEvaluation(
+  supabase: Awaited<ReturnType<typeof authed>>["supabase"],
+  base: Record<string, unknown>,
+  dogIds: string[]
+): Promise<{ id: string } | null> {
+  const row = { ...base, dog_id: dogIds[0] ?? null };
+  const withDogs = await supabase.from("trainer_evaluations").insert({ ...row, dog_ids: dogIds }).select("id").single();
+  if (!withDogs.error) return withDogs.data;
+  const noDogs = await supabase.from("trainer_evaluations").insert(row).select("id").single();
+  return noDogs.data ?? null;
+}
+
+/** All dog ids for an evaluation (dog_ids if present, else the single dog_id). */
+async function evaluationDogIds(
+  supabase: Awaited<ReturnType<typeof authed>>["supabase"],
+  evaluationId: string
+): Promise<string[]> {
+  const full = await supabase.from("trainer_evaluations").select("dog_id, dog_ids").eq("id", evaluationId).maybeSingle();
+  if (!full.error && full.data) {
+    const ids = (full.data as { dog_ids?: string[] | null }).dog_ids;
+    if (ids && ids.length) return ids;
+    const one = (full.data as { dog_id?: string | null }).dog_id;
+    return one ? [one] : [];
+  }
+  const base = await supabase.from("trainer_evaluations").select("dog_id").eq("id", evaluationId).maybeSingle();
+  return base.data?.dog_id ? [base.data.dog_id] : [];
+}
+
 type BookingArgs = {
   ownerId: string;
   trainerId: string;
   programId: string | null;
   recommendationId: string | null;
-  dogId: string | null;
+  dogIds: string[];
   sessionsTotal: number;
   gross: number;
 };
@@ -766,22 +810,27 @@ async function createBookingWithSessions(
   a: BookingArgs
 ): Promise<{ id: string; gross: number } | null> {
   const { commission, payout } = splitAmount(a.gross);
-  const { data: booking } = await supabase
-    .from("trainer_bookings")
-    .insert({
-      owner_id: a.ownerId,
-      trainer_id: a.trainerId,
-      program_id: a.programId,
-      recommendation_id: a.recommendationId,
-      dog_id: a.dogId,
-      status: "pending", // moves to 'paid' after checkout (or stub)
-      sessions_total: a.sessionsTotal,
-      gross_amount: a.gross,
-      commission_amount: commission,
-      trainer_payout: payout,
-    })
-    .select("id")
-    .single();
+  const base = {
+    owner_id: a.ownerId,
+    trainer_id: a.trainerId,
+    program_id: a.programId,
+    recommendation_id: a.recommendationId,
+    dog_id: a.dogIds[0] ?? null, // primary dog (backward-compatible reads)
+    status: "pending", // moves to 'paid' after checkout (or stub)
+    sessions_total: a.sessionsTotal,
+    gross_amount: a.gross,
+    commission_amount: commission,
+    trainer_payout: payout,
+  };
+  // Set the full dog set; fall back to primary-only if dog_ids isn't there yet.
+  let booking: { id: string } | null;
+  const withDogs = await supabase.from("trainer_bookings").insert({ ...base, dog_ids: a.dogIds }).select("id").single();
+  if (!withDogs.error) {
+    booking = withDogs.data;
+  } else {
+    const noDogs = await supabase.from("trainer_bookings").insert(base).select("id").single();
+    booking = noDogs.data ?? null;
+  }
 
   if (!booking) return null;
 

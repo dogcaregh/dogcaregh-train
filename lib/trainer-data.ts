@@ -21,19 +21,24 @@ export type TrainerProfile = {
   review_count: number;
   avatar_url: string | null;
   gallery_photos: string[];
+  multi_dog_discount: number;
 };
 
 /** My trainer profile (or null if I haven't created one). Deduped per request. */
 export const getMyTrainerProfile = cache(async (): Promise<TrainerProfile | null> => {
   const { supabase, user } = await requireUser();
-  const { data } = await supabase
-    .from("trainer_profiles")
-    .select(
-      "id, user_id, bio, specialties, breeds, neighbourhoods, methods, credentials, years_experience, eval_fee, vetting_status, active, rating_avg, review_count, avatar_url, gallery_photos"
-    )
-    .eq("user_id", user.id)
-    .maybeSingle();
-  return (data as TrainerProfile) ?? null;
+  const BASE =
+    "id, user_id, bio, specialties, breeds, neighbourhoods, methods, credentials, years_experience, eval_fee, vetting_status, active, rating_avg, review_count, avatar_url, gallery_photos";
+  // Prefer multi_dog_discount; fall back if the migration isn't applied yet.
+  const withDisc = await supabase.from("trainer_profiles").select(BASE + ", multi_dog_discount").eq("user_id", user.id).maybeSingle();
+  const data = withDisc.error
+    ? (await supabase.from("trainer_profiles").select(BASE).eq("user_id", user.id).maybeSingle()).data
+    : withDisc.data;
+  if (!data) return null;
+  return {
+    ...(data as TrainerProfile),
+    multi_dog_discount: Number((data as { multi_dog_discount?: number }).multi_dog_discount ?? 0),
+  };
 });
 
 export async function getMyPrograms() {
@@ -58,12 +63,29 @@ export type Lead = {
   created_at: string;
   ownerName: string;
   goal: string | null;
-  dogBreed: string | null;
-  dogName: string | null;
+  dogs: { name: string; breed: string | null }[];
   budget: number | null;
   neighbourhood: string | null;
   hasRecommendation: boolean;
 };
+
+type EvalRow = {
+  id: string;
+  owner_id: string;
+  program_id: string | null;
+  dog_id: string | null;
+  dog_ids?: string[] | null;
+  fee: number;
+  status: string;
+  scheduled_at: string | null;
+  created_at: string;
+};
+
+/** Dog ids on an evaluation: the full set, or the single primary dog. */
+function evalDogIds(e: EvalRow): string[] {
+  if (e.dog_ids && e.dog_ids.length) return e.dog_ids;
+  return e.dog_id ? [e.dog_id] : [];
+}
 
 /** Evaluation requests sent to me, enriched with the owner's intake. */
 export async function getMyLeads(): Promise<Lead[]> {
@@ -71,17 +93,29 @@ export async function getMyLeads(): Promise<Lead[]> {
   if (!profile) return [];
   const { supabase } = await requireUser();
 
-  const { data: evals } = await supabase
+  const BASE = "id, owner_id, program_id, dog_id, fee, status, scheduled_at, created_at";
+  // Prefer dog_ids (multi-dog); fall back if the migration isn't applied yet.
+  const withDogs = await supabase
     .from("trainer_evaluations")
-    .select("id, owner_id, program_id, dog_id, fee, status, scheduled_at, created_at")
+    .select(BASE + ", dog_ids")
     .eq("trainer_id", profile.id)
     .not("paid_at", "is", null) // only surface paid evaluations
     .order("created_at", { ascending: false });
+  const evals = (withDogs.error
+    ? (
+        await supabase
+          .from("trainer_evaluations")
+          .select(BASE)
+          .eq("trainer_id", profile.id)
+          .not("paid_at", "is", null)
+          .order("created_at", { ascending: false })
+      ).data
+    : withDogs.data) as EvalRow[] | null;
   if (!evals || evals.length === 0) return [];
 
   const ownerIds = [...new Set(evals.map((e) => e.owner_id))];
   const evalIds = evals.map((e) => e.id);
-  const dogIds = [...new Set(evals.map((e) => e.dog_id).filter(Boolean))] as string[];
+  const dogIds = [...new Set(evals.flatMap(evalDogIds))];
 
   const [{ data: owners }, { data: intakes }, { data: recos }, { data: dogRows }] = await Promise.all([
     supabase.from("users").select("id, name").in("id", ownerIds),
@@ -102,7 +136,10 @@ export async function getMyLeads(): Promise<Lead[]> {
 
   return evals.map((e): Lead => {
     const intake = intakeById.get(e.owner_id);
-    const dog = e.dog_id ? dogById.get(e.dog_id) : null;
+    const dogs = evalDogIds(e)
+      .map((id) => dogById.get(id))
+      .filter(Boolean)
+      .map((d) => ({ name: d!.name, breed: d!.breed }));
     return {
       id: e.id,
       owner_id: e.owner_id,
@@ -113,8 +150,7 @@ export async function getMyLeads(): Promise<Lead[]> {
       created_at: e.created_at,
       ownerName: nameById.get(e.owner_id) ?? "An owner",
       goal: intake?.goal ?? null,
-      dogBreed: dog?.breed ?? null,
-      dogName: dog?.name ?? null,
+      dogs,
       budget: intake?.budget != null ? Number(intake.budget) : null,
       neighbourhood: intake?.neighbourhood ?? null,
       hasRecommendation: recoEvalIds.has(e.id),

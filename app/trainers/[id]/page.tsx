@@ -73,6 +73,7 @@ export default async function TrainerPage({ params }: { params: { id: string } }
           dogs={dogs}
           defaultDogId={profile?.dog_id ?? null}
           canRebook={canRebook}
+          multiDogDiscount={t.multi_dog_discount}
         />
 
         {reviews.length > 0 && (

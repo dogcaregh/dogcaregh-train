@@ -16,6 +16,22 @@ export function totalSessions(sessionsPerWeek: number, weeks: number): number {
   return sessionsPerWeek * weeks;
 }
 
+/**
+ * Total for a service booked for multiple dogs: the per-dog program total
+ * charged per dog, with the trainer's multi-dog discount applied once 2+ dogs
+ * are booked. (Evaluations are a single flat fee and don't use this.)
+ */
+export function multiDogTotal(
+  perDogTotal: number,
+  numDogs: number,
+  multiDogDiscountPct: number
+): number {
+  const n = Math.max(1, numDogs);
+  const gross = perDogTotal * n;
+  const net = n >= 2 ? gross * (1 - (multiDogDiscountPct || 0) / 100) : gross;
+  return Math.round(net * 100) / 100;
+}
+
 export function cedis(n: number): string {
   return "₵" + n.toLocaleString("en-GH", { maximumFractionDigits: 2 });
 }

@@ -29,6 +29,12 @@ export default async function TrainerProfilePage() {
             <Field name="years_experience" label="Years experience" type="number" defaultValue={p?.years_experience?.toString() ?? ""} />
             <Field name="eval_fee" label="Evaluation fee (₵, min 300)" type="number" defaultValue={p?.eval_fee?.toString() ?? "300"} />
           </div>
+          <Field
+            name="multi_dog_discount"
+            label="Multi-dog discount (%, applied when an owner books 2+ dogs)"
+            type="number"
+            defaultValue={p?.multi_dog_discount?.toString() ?? "0"}
+          />
 
           <button className="w-full rounded-full bg-mahogany text-ivory text-sm font-semibold px-5 py-3 hover:bg-espresso transition-colors">
             {p ? "Save profile" : "Create profile"}

@@ -42,6 +42,7 @@ export type Trainer = {
   review_count: number;
   avatar_url: string | null;
   gallery_photos: string[];
+  multi_dog_discount: number;
   programs: Program[];
   fromPrice: number | null; // cheapest program price
   score: number; // match score for the current owner
@@ -134,13 +135,26 @@ export async function listRankedTrainers(): Promise<Trainer[]> {
   const { supabase } = await requireUser();
   const profile = await getMyOwnerProfile();
 
-  const { data: profiles } = await supabase
+  // Prefer the multi_dog_discount column; fall back if the migration isn't
+  // applied yet. Literal select strings so the row types stay inferred.
+  const withDisc = await supabase
     .from("trainer_profiles")
     .select(
-      "id, user_id, bio, specialties, breeds, neighbourhoods, methods, credentials, years_experience, eval_fee, vetting_status, rating_avg, review_count, avatar_url, gallery_photos, users(name)"
+      "id, user_id, bio, specialties, breeds, neighbourhoods, methods, credentials, years_experience, eval_fee, vetting_status, rating_avg, review_count, avatar_url, gallery_photos, multi_dog_discount, users(name)"
     )
     .eq("active", true)
     .eq("vetting_status", "verified");
+  const profiles = withDisc.error
+    ? (
+        await supabase
+          .from("trainer_profiles")
+          .select(
+            "id, user_id, bio, specialties, breeds, neighbourhoods, methods, credentials, years_experience, eval_fee, vetting_status, rating_avg, review_count, avatar_url, gallery_photos, users(name)"
+          )
+          .eq("active", true)
+          .eq("vetting_status", "verified")
+      ).data
+    : withDisc.data;
 
   if (!profiles || profiles.length === 0) return [];
 
@@ -183,6 +197,7 @@ export async function listRankedTrainers(): Promise<Trainer[]> {
       review_count: Number(row.review_count ?? 0),
       avatar_url: (row.avatar_url as string | null) ?? null,
       gallery_photos: (row.gallery_photos as string[] | null) ?? [],
+      multi_dog_discount: Number((row as { multi_dog_discount?: number }).multi_dog_discount ?? 0),
       programs: progs.sort((a, b) => a.price - b.price),
       fromPrice,
     };

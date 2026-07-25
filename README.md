@@ -15,8 +15,10 @@ payments held in escrow and released per session.
   view profiles, ratings, and photo galleries.
 - Complete an intake questionnaire (goal, budget, schedule, neighbourhood) that
   drives ranking.
-- Book & pay for an evaluation, review the trainer's program recommendation,
-  and accept it into an escrow booking.
+- Book & pay for an evaluation (one evaluation can cover several dogs at a
+  single fee), review the trainer's program recommendation, and accept it into
+  an escrow booking. Services are priced per dog, with an optional trainer
+  multi-dog discount.
 - Track session-by-session progress, message the trainer, get notifications,
   and leave a review once the program is complete.
 
@@ -86,7 +88,10 @@ and are **not** created here.
 
 There is a defensive fallback in the booking reads for the `seq` column
 (`supabase/add_session_sequence.sql`) so the app works before that migration is
-applied; it can be removed once the migration is confirmed in production.
+applied; it can be removed once the migration is confirmed in production. The
+same fallback pattern covers `supabase/add_multi_dog_bookings.sql` (multi-dog
+evaluations/services), which also **extends the `dogs` RLS policy** so a trainer
+can read every dog on an engagement — run it in the shared project's SQL Editor.
 
 ## Supabase Auth setup (additive — do not remove existing entries)
 

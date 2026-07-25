@@ -41,7 +41,13 @@ export default async function LeadsPage({ searchParams }: { searchParams: { sent
                   </div>
                 </div>
                 <p className="mt-1 text-sm text-muted">
-                  {[l.dogName && `Dog: ${l.dogName}`, l.dogBreed, l.goal, l.neighbourhood].filter(Boolean).join(" · ") || "No intake details"}
+                  {[
+                    l.dogs.length
+                      ? `${l.dogs.length > 1 ? "Dogs" : "Dog"}: ${l.dogs.map((d) => d.name + (d.breed ? ` (${d.breed})` : "")).join(", ")}`
+                      : null,
+                    l.goal,
+                    l.neighbourhood,
+                  ].filter(Boolean).join(" · ") || "No intake details"}
                   {l.budget != null && ` · budget ${cedis(l.budget)}/session`}
                 </p>
                 <p className="mt-1 text-xs text-muted">Evaluation fee {cedis(l.fee)}{l.program_id ? " · for a specific program" : " · general"}</p>
