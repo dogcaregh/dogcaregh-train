@@ -278,12 +278,20 @@ export type EvaluationRow = {
 
 export async function listMyEvaluations() {
   const { supabase, user } = await requireUser();
-  const { data } = await supabase
+  // Prefer schedule_confirmed; fall back if the migration isn't applied yet.
+  // Literal select strings so the row types stay inferred.
+  const withConfirm = await supabase
+    .from("trainer_evaluations")
+    .select("id, trainer_id, program_id, fee, status, scheduled_at, created_at, schedule_confirmed, trainer_profiles(users(name)), trainer_programs(name)")
+    .eq("owner_id", user.id)
+    .order("created_at", { ascending: false });
+  if (!withConfirm.error) return withConfirm.data ?? [];
+  const fb = await supabase
     .from("trainer_evaluations")
     .select("id, trainer_id, program_id, fee, status, scheduled_at, created_at, trainer_profiles(users(name)), trainer_programs(name)")
     .eq("owner_id", user.id)
     .order("created_at", { ascending: false });
-  return data ?? [];
+  return fb.data ?? [];
 }
 
 export type RecCard = {

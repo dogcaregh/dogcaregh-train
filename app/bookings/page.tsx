@@ -1,7 +1,7 @@
 import { OwnerNav } from "@/components/owner-nav";
 import { SubmitButton } from "@/components/submit-button";
 import { listMyBookings, listMyEvaluations, relName } from "@/lib/owner-data";
-import { submitReview } from "@/app/actions";
+import { submitReview, confirmEvaluationSchedule } from "@/app/actions";
 import { cedis } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
@@ -21,10 +21,12 @@ const PAID_MSG: Record<string, string> = {
 export default async function BookingsPage({
   searchParams,
 }: {
-  searchParams: { booked?: string; paid?: string; reviewed?: string };
+  searchParams: { booked?: string; paid?: string; reviewed?: string; confirmed?: string };
 }) {
   const [evals, bookings] = await Promise.all([listMyEvaluations(), listMyBookings()]);
-  const banner = searchParams.reviewed
+  const banner = searchParams.confirmed
+    ? "Time confirmed — your trainer has been notified."
+    : searchParams.reviewed
     ? "Thanks — your review is live on the trainer's profile."
     : searchParams.paid
       ? PAID_MSG[searchParams.paid]
@@ -74,11 +76,12 @@ export default async function BookingsPage({
                     <p className="mt-0.5 text-xs text-muted">
                       {progName ? `For "${progName}"` : "General evaluation"} · {cedis(Number(e.fee))}
                     </p>
-                    {e.scheduled_at ? (
-                      <p className="mt-1 text-xs text-walnut">🗓 Scheduled: <strong className="text-espresso">{fmtDT(e.scheduled_at)}</strong></p>
-                    ) : e.status === "requested" ? (
-                      <p className="mt-1 text-xs text-muted">Awaiting the trainer to schedule a time.</p>
-                    ) : null}
+                    <EvalSchedule
+                      id={e.id}
+                      status={e.status}
+                      scheduledAt={e.scheduled_at}
+                      confirmed={Boolean((e as { schedule_confirmed?: boolean }).schedule_confirmed)}
+                    />
                   </div>
                 );
               })}
@@ -214,6 +217,39 @@ function orderSessions(sessions: Sess[]): Sess[] {
 }
 function fmtDT(iso: string) {
   return new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
+function EvalSchedule({ id, status, scheduledAt, confirmed }: { id: string; status: string; scheduledAt: string | null; confirmed: boolean }) {
+  if (status === "completed") return null;
+  if (scheduledAt) {
+    if (confirmed) {
+      return <p className="mt-1 text-xs text-walnut">✓ Confirmed for <strong className="text-espresso">{fmtDT(scheduledAt)}</strong></p>;
+    }
+    return (
+      <div className="mt-2 rounded-lg border border-gold/40 bg-[rgba(185,138,50,0.08)] p-3">
+        <p className="text-xs text-walnut">
+          Your trainer proposed <strong className="text-espresso">{fmtDT(scheduledAt)}</strong> for the evaluation. Confirm if it works (or contact them to adjust).
+        </p>
+        <form action={confirmEvaluationSchedule} className="mt-2">
+          <input type="hidden" name="evaluation_id" value={id} />
+          <SubmitButton pendingText="Confirming…" className="rounded-full bg-walnut text-ivory text-xs font-semibold px-4 py-1.5 hover:bg-mahogany transition-colors disabled:opacity-60">
+            Confirm this time
+          </SubmitButton>
+        </form>
+      </div>
+    );
+  }
+  if (status === "requested") {
+    return (
+      <div className="mt-2 rounded-lg border border-hairline bg-cream/60 p-3 text-xs text-walnut">
+        <p className="font-semibold text-espresso">What happens next</p>
+        <p className="mt-0.5">
+          The trainer will call you to confirm your location, then propose an evaluation time here for you to confirm. Once you confirm, they&apos;ll meet your dog and send a program recommendation.
+        </p>
+      </div>
+    );
+  }
+  return null;
 }
 
 function StatusPill({ status }: { status: string }) {

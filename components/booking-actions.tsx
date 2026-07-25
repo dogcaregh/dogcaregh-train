@@ -75,6 +75,20 @@ export function BookingActions({
     </ul>
   );
 
+  const contactField = (
+    <label className="block">
+      <span className="text-xs font-semibold text-walnut">Your contact number</span>
+      <input
+        name="contact_phone"
+        type="tel"
+        required
+        placeholder="e.g. 024 123 4567"
+        className="mt-1 w-full rounded-lg border border-hairline bg-ivory px-3 py-2 text-sm text-espresso outline-none focus:border-gold"
+      />
+      <span className="mt-1 block text-[11px] text-muted">The trainer will call this to confirm your location.</span>
+    </label>
+  );
+
   return (
     <>
       {/* Which dogs is this booking for? Defaults to your onboarding dog. */}
@@ -128,6 +142,7 @@ export function BookingActions({
               pendingText="Starting…"
               action={bookEvaluation}
               fields={{ trainer_id: trainerId, program_id: p.id, dog_ids: selected }}
+              extra={contactField}
             />
           ))}
           <ConfirmPay
@@ -140,6 +155,7 @@ export function BookingActions({
             pendingText="Starting…"
             action={bookEvaluation}
             fields={{ trainer_id: trainerId, dog_ids: selected }}
+            extra={contactField}
           />
         </div>
       </section>

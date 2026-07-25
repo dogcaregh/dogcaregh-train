@@ -23,6 +23,7 @@ export function ConfirmPay({
   pendingText,
   action,
   fields,
+  extra,
 }: {
   triggerLabel: React.ReactNode;
   triggerClassName?: string;
@@ -34,6 +35,7 @@ export function ConfirmPay({
   pendingText?: string;
   action: (formData: FormData) => void | Promise<void>;
   fields: Record<string, string | string[]>;
+  extra?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -56,25 +58,28 @@ export function ConfirmPay({
           <div className="relative z-10 w-full max-w-sm rounded-2xl bg-white border border-hairline shadow-xl p-5">
             <h3 className="font-display text-lg text-espresso">{title}</h3>
             <div className="mt-3 text-sm text-walnut">{summary}</div>
-            <form action={action} className="mt-5 flex items-center gap-2">
+            <form action={action} className="mt-4 space-y-3">
               {Object.entries(fields).flatMap(([name, val]) =>
                 Array.isArray(val)
                   ? val.map((v, i) => <input key={`${name}-${i}`} type="hidden" name={name} value={v} />)
                   : [<input key={name} type="hidden" name={name} value={val} />]
               )}
-              <SubmitButton
-                pendingText={pendingText}
-                className="flex-1 rounded-full bg-walnut text-ivory text-sm font-semibold px-5 py-2.5 hover:bg-mahogany transition-colors disabled:opacity-60"
-              >
-                {confirmLabel}
-              </SubmitButton>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="rounded-full border border-hairline text-walnut text-sm font-semibold px-4 py-2.5 hover:border-gold transition-colors"
-              >
-                Cancel
-              </button>
+              {extra}
+              <div className="flex items-center gap-2">
+                <SubmitButton
+                  pendingText={pendingText}
+                  className="flex-1 rounded-full bg-walnut text-ivory text-sm font-semibold px-5 py-2.5 hover:bg-mahogany transition-colors disabled:opacity-60"
+                >
+                  {confirmLabel}
+                </SubmitButton>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="rounded-full border border-hairline text-walnut text-sm font-semibold px-4 py-2.5 hover:border-gold transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
             </form>
           </div>
         </div>

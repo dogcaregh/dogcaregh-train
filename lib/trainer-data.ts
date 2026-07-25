@@ -74,6 +74,8 @@ export type Lead = {
   budget: number | null;
   neighbourhood: string | null;
   hasRecommendation: boolean;
+  contactPhone: string | null;
+  scheduleConfirmed: boolean;
 };
 
 type EvalRow = {
@@ -86,6 +88,8 @@ type EvalRow = {
   status: string;
   scheduled_at: string | null;
   created_at: string;
+  contact_phone?: string | null;
+  schedule_confirmed?: boolean | null;
 };
 
 /** Dog ids on an evaluation: the full set, or the single primary dog. */
@@ -104,7 +108,7 @@ export async function getMyLeads(): Promise<Lead[]> {
   // Prefer dog_ids (multi-dog); fall back if the migration isn't applied yet.
   const withDogs = await supabase
     .from("trainer_evaluations")
-    .select(BASE + ", dog_ids")
+    .select(BASE + ", dog_ids, contact_phone, schedule_confirmed")
     .eq("trainer_id", profile.id)
     .not("paid_at", "is", null) // only surface paid evaluations
     .order("created_at", { ascending: false });
@@ -162,6 +166,8 @@ export async function getMyLeads(): Promise<Lead[]> {
       budget: intake?.budget != null ? Number(intake.budget) : null,
       neighbourhood: intake?.neighbourhood ?? null,
       hasRecommendation: recoEvalIds.has(e.id),
+      contactPhone: e.contact_phone ?? null,
+      scheduleConfirmed: Boolean(e.schedule_confirmed),
     };
   });
 }

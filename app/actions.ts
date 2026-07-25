@@ -256,6 +256,7 @@ export async function bookEvaluation(formData: FormData) {
 
   const fee = Number(tp.eval_fee); // single fee regardless of how many dogs
   const { payout } = splitAmount(fee);
+  const contactPhone = String(formData.get("contact_phone") ?? "").trim() || null;
   const ev = await insertEvaluation(supabase, {
     owner_id: user.id,
     trainer_id: trainerId,
@@ -263,7 +264,7 @@ export async function bookEvaluation(formData: FormData) {
     fee,
     trainer_payout: payout,
     status: "requested",
-  }, dogIds);
+  }, dogIds, contactPhone);
   if (!ev) redirect("/trainers");
 
   const url = await beginCheckout("evaluation", ev.id, fee, user.email ?? "");
@@ -682,18 +683,51 @@ export async function setProgramActive(formData: FormData) {
   redirect("/trainer/programs");
 }
 
+/** Trainer proposes an evaluation time. The owner then confirms it in the app. */
 export async function scheduleEvaluation(formData: FormData) {
   const { supabase } = await authed();
   const evaluationId = String(formData.get("evaluation_id"));
   const when = String(formData.get("scheduled_at") ?? "").trim();
-  await supabase
+  const iso = when ? new Date(when).toISOString() : null;
+
+  // Proposing a (new) time resets confirmation; retry without the column if the
+  // migration isn't applied yet.
+  const withConfirm = await supabase
     .from("trainer_evaluations")
-    .update({ status: "scheduled", scheduled_at: when ? new Date(when).toISOString() : null })
+    .update({ status: "scheduled", scheduled_at: iso, schedule_confirmed: false })
     .eq("id", evaluationId);
+  if (withConfirm.error) {
+    await supabase.from("trainer_evaluations").update({ status: "scheduled", scheduled_at: iso }).eq("id", evaluationId);
+  }
+
   const { data: ev } = await supabase.from("trainer_evaluations").select("owner_id").eq("id", evaluationId).maybeSingle();
-  if (ev?.owner_id) await notify(supabase, ev.owner_id, "eval_scheduled", "Your evaluation has been scheduled.", "/bookings");
+  if (ev?.owner_id) {
+    const msg = iso ? "Your trainer proposed an evaluation time — please confirm it." : "Your evaluation time was updated.";
+    await notify(supabase, ev.owner_id, "eval_scheduled", msg, "/bookings", "Confirm your evaluation time");
+  }
   revalidatePath("/trainer/leads");
   redirect("/trainer/leads");
+}
+
+/** Owner confirms the trainer's proposed evaluation time. */
+export async function confirmEvaluationSchedule(formData: FormData) {
+  const { supabase, user } = await authed();
+  const evaluationId = String(formData.get("evaluation_id"));
+  const { data: ev } = await supabase
+    .from("trainer_evaluations")
+    .select("id, owner_id, trainer_id, scheduled_at")
+    .eq("id", evaluationId)
+    .eq("owner_id", user.id)
+    .maybeSingle();
+  if (!ev || !ev.scheduled_at) redirect("/bookings");
+
+  await supabase.from("trainer_evaluations").update({ schedule_confirmed: true }).eq("id", evaluationId).eq("owner_id", user.id);
+
+  const tuid = await trainerUserId(supabase, ev.trainer_id);
+  if (tuid) await notify(supabase, tuid, "eval_confirmed", "The owner confirmed the evaluation time.", "/trainer/leads", "Evaluation time confirmed");
+
+  revalidatePath("/bookings");
+  redirect("/bookings?confirmed=1");
 }
 
 export async function sendRecommendation(formData: FormData) {
@@ -943,13 +977,15 @@ export async function requestCashout(formData: FormData) {
 async function insertEvaluation(
   supabase: Awaited<ReturnType<typeof authed>>["supabase"],
   base: Record<string, unknown>,
-  dogIds: string[]
+  dogIds: string[],
+  contactPhone: string | null
 ): Promise<{ id: string } | null> {
-  const row = { ...base, dog_id: dogIds[0] ?? null };
-  const withDogs = await supabase.from("trainer_evaluations").insert({ ...row, dog_ids: dogIds }).select("id").single();
-  if (!withDogs.error) return withDogs.data;
-  const noDogs = await supabase.from("trainer_evaluations").insert(row).select("id").single();
-  return noDogs.data ?? null;
+  const primary = { ...base, dog_id: dogIds[0] ?? null };
+  // Try the later-migration columns (dog_ids, contact_phone); fall back without.
+  const full = await supabase.from("trainer_evaluations").insert({ ...primary, dog_ids: dogIds, contact_phone: contactPhone }).select("id").single();
+  if (!full.error) return full.data;
+  const noExtra = await supabase.from("trainer_evaluations").insert(primary).select("id").single();
+  return noExtra.data ?? null;
 }
 
 /** All dog ids for an evaluation (dog_ids if present, else the single dog_id). */

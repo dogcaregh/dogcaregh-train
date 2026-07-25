@@ -7,6 +7,8 @@ import { cedis } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
 
+const fmtDT = (iso: string) => new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
+
 export default async function LeadsPage({ searchParams }: { searchParams: { sent?: string } }) {
   const profile = await getMyTrainerProfile();
   if (!profile) redirect("/trainer/profile");
@@ -51,20 +53,34 @@ export default async function LeadsPage({ searchParams }: { searchParams: { sent
                   {l.budget != null && ` · budget ${cedis(l.budget)}/session`}
                 </p>
                 <p className="mt-1 text-xs text-muted">Evaluation fee {cedis(l.fee)}{l.program_id ? " · for a specific program" : " · general"}</p>
+                {l.contactPhone && (
+                  <p className="mt-1 text-sm text-walnut">
+                    📞 Call to confirm location:{" "}
+                    <a href={`tel:${l.contactPhone}`} className="font-semibold text-espresso hover:underline">{l.contactPhone}</a>
+                  </p>
+                )}
 
                 {l.hasRecommendation ? (
                   <p className="mt-3 text-sm text-walnut font-semibold">✓ Recommendation sent</p>
                 ) : (
                   <div className="mt-4 space-y-4">
-                    {l.status !== "scheduled" && l.status !== "completed" && (
+                    {l.scheduled_at && (
+                      <div className="rounded-lg border border-hairline bg-cream/50 p-3 text-xs text-walnut">
+                        Proposed: <strong className="text-espresso">{fmtDT(l.scheduled_at)}</strong> ·{" "}
+                        {l.scheduleConfirmed
+                          ? <span className="text-green-700 font-semibold">owner confirmed ✓</span>
+                          : <span className="text-gold font-semibold">awaiting owner confirmation</span>}
+                      </div>
+                    )}
+                    {l.status !== "completed" && (
                       <form action={scheduleEvaluation} className="flex items-end gap-2">
                         <input type="hidden" name="evaluation_id" value={l.id} />
                         <label className="flex-1">
-                          <span className="text-xs font-semibold text-walnut">Schedule the evaluation</span>
+                          <span className="text-xs font-semibold text-walnut">{l.scheduled_at ? "Change proposed time" : "Propose an evaluation time"}</span>
                           <input type="datetime-local" name="scheduled_at"
                             className="mt-1 w-full rounded-lg border border-hairline bg-ivory px-3 py-2 text-sm text-espresso outline-none focus:border-gold" />
                         </label>
-                        <button className="rounded-full bg-walnut text-ivory text-xs font-semibold px-4 py-2 hover:bg-mahogany transition-colors">Schedule</button>
+                        <button className="rounded-full bg-walnut text-ivory text-xs font-semibold px-4 py-2 hover:bg-mahogany transition-colors">{l.scheduled_at ? "Update" : "Propose"}</button>
                       </form>
                     )}
 
