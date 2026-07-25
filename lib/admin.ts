@@ -106,28 +106,35 @@ export type AdminTrainer = {
   created_at: string;
   name: string;
   email: string;
+  phone: string | null;
+  location: string | null;
 };
 
 /** All trainer profiles for the admin queue (admins can read all via RLS). */
 export async function listAllTrainers(): Promise<AdminTrainer[]> {
   const { supabase } = await requireUser();
-  const { data } = await supabase
-    .from("trainer_profiles")
-    .select("id, specialties, eval_fee, vetting_status, active, created_at, users(name, email)")
-    .order("created_at", { ascending: false });
+  const SEL = "id, specialties, eval_fee, vetting_status, active, created_at, users(name, email)";
+  // Prefer contact columns; fall back if the migration isn't applied yet.
+  const withContact = await supabase.from("trainer_profiles").select(SEL + ", phone, location").order("created_at", { ascending: false });
+  const data = withContact.error
+    ? (await supabase.from("trainer_profiles").select(SEL).order("created_at", { ascending: false })).data
+    : withContact.data;
 
-  return (data ?? []).map((row): AdminTrainer => {
+  const rows = (data ?? []) as Array<Record<string, unknown>>;
+  return rows.map((row): AdminTrainer => {
     const u = row.users as unknown;
     const rec = Array.isArray(u) ? u[0] : (u as { name?: string; email?: string } | null);
     return {
-      id: row.id,
-      specialties: row.specialties ?? [],
+      id: row.id as string,
+      specialties: (row.specialties as string[]) ?? [],
       eval_fee: Number(row.eval_fee),
-      vetting_status: row.vetting_status,
-      active: row.active,
-      created_at: row.created_at,
+      vetting_status: row.vetting_status as string,
+      active: row.active as boolean,
+      created_at: row.created_at as string,
       name: rec?.name ?? "Trainer",
       email: rec?.email ?? "",
+      phone: (row.phone as string | null) ?? null,
+      location: (row.location as string | null) ?? null,
     };
   });
 }

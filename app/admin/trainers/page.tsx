@@ -38,6 +38,11 @@ export default async function AdminTrainersPage() {
                 <StatusPill status={t.vetting_status} />
               </div>
               <p className="text-xs text-muted mt-0.5">{t.email} · eval {cedis(t.eval_fee)}</p>
+              {(t.phone || t.location) && (
+                <p className="mt-1 text-xs text-walnut">
+                  {[t.location && `📍 ${t.location}`, t.phone && `📞 ${t.phone}`].filter(Boolean).join("  ·  ")}
+                </p>
+              )}
               {t.specialties.length > 0 && (
                 <p className="mt-2 text-sm text-walnut">{t.specialties.join(", ")}</p>
               )}
