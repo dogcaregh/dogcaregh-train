@@ -32,28 +32,39 @@ export async function adminListUsers(q?: string) {
   return data ?? [];
 }
 
-/** Program bookings with owner/trainer/dog + sessions, for override. */
-export async function adminListBookings() {
+export const BOOKINGS_PAGE_SIZE = 25;
+
+/** Program bookings with owner/trainer/dog + sessions, filtered + paginated. */
+export async function adminListBookings(opts: { status?: string; flagged?: boolean; page?: number } = {}) {
   const { supabase } = await requireUser();
-  const { data } = await supabase
+  const page = Math.max(1, opts.page ?? 1);
+  const from = (page - 1) * BOOKINGS_PAGE_SIZE;
+
+  let query = supabase
     .from("trainer_bookings")
     .select(
-      "id, status, sessions_total, gross_amount, trainer_payout, refund_flagged, admin_note, created_at, " +
-        "owner:owner_id(name, email), trainer_profiles(users(name)), dogs(name), trainer_sessions(status)"
+      "id, status, sessions_total, gross_amount, trainer_payout, refund_flagged, admin_note, created_at, payment_ref, " +
+        "owner:owner_id(name, email), trainer_profiles(users(name)), dogs(name), trainer_sessions(status, seq, scheduled_at)",
+      { count: "exact" }
     )
     .order("created_at", { ascending: false })
-    .limit(200);
+    .range(from, from + BOOKINGS_PAGE_SIZE - 1);
+  if (opts.status) query = query.eq("status", opts.status);
+  if (opts.flagged) query = query.eq("refund_flagged", true);
 
+  const { data, count } = await query;
+
+  type Sess = { status: string; seq: number | null; scheduled_at: string | null };
   type Row = {
     id: string; status: string; sessions_total: number; gross_amount: number; trainer_payout: number;
-    refund_flagged: boolean; admin_note: string | null; created_at: string;
+    refund_flagged: boolean; admin_note: string | null; created_at: string; payment_ref: string | null;
     owner: { name?: string; email?: string } | { name?: string; email?: string }[] | null;
     trainer_profiles: unknown; dogs: { name?: string } | { name?: string }[] | null;
-    trainer_sessions: { status: string }[] | null;
+    trainer_sessions: Sess[] | null;
   };
   const rows = (data ?? []) as unknown as Row[];
 
-  return rows.map((b) => {
+  const list = rows.map((b) => {
     const sessions = b.trainer_sessions ?? [];
     const owner = Array.isArray(b.owner) ? b.owner[0] : b.owner;
     return {
@@ -63,6 +74,42 @@ export async function adminListBookings() {
       trainerName: name1(b.trainer_profiles),
       dogName: (Array.isArray(b.dogs) ? b.dogs[0]?.name : b.dogs?.name) ?? "—",
       done: sessions.filter((s) => s.status === "completed").length,
+      sessions: [...sessions].sort((a, z) => (a.seq ?? 99) - (z.seq ?? 99)),
+    };
+  });
+  return { rows: list, total: count ?? 0, page, pageSize: BOOKINGS_PAGE_SIZE };
+}
+
+/** Paid evaluations for admin oversight (unstick stalled ones). */
+export async function adminListEvaluations() {
+  const { supabase } = await requireUser();
+  const { data } = await supabase
+    .from("trainer_evaluations")
+    .select("id, fee, status, scheduled_at, paid_at, created_at, owner:owner_id(name, email), trainer_profiles(users(name)), dogs(name)")
+    .not("paid_at", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  type Row = {
+    id: string; fee: number; status: string; scheduled_at: string | null; created_at: string;
+    owner: { name?: string; email?: string } | { name?: string; email?: string }[] | null;
+    trainer_profiles: unknown; dogs: { name?: string } | { name?: string }[] | null;
+  };
+  const rows = (data ?? []) as unknown as Row[];
+  return rows.map((e) => {
+    const owner = Array.isArray(e.owner) ? e.owner[0] : e.owner;
+    return {
+      id: e.id,
+      fee: Number(e.fee),
+      status: e.status,
+      scheduled_at: e.scheduled_at,
+      created_at: e.created_at,
+      ownerName: owner?.name ?? "—",
+      ownerEmail: owner?.email ?? "",
+      trainerName: name1(e.trainer_profiles),
+      dogName: (Array.isArray(e.dogs) ? e.dogs[0]?.name : e.dogs?.name) ?? "—",
+      // Stalled = paid, but the trainer never scheduled it.
+      stalled: e.status === "requested",
     };
   });
 }

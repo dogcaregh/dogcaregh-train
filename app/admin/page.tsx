@@ -20,7 +20,7 @@ export default async function AdminHome() {
           <Card label="Pending vettings" value={o.pendingVettings} href="/admin/trainers" cta="Review" highlight={o.pendingVettings > 0} />
           <Card label="Pending cash-outs" value={o.pendingCashouts} href="/admin/cashouts" cta="Process" highlight={o.pendingCashouts > 0} />
           <Card label="Flagged refunds" value={o.flaggedRefunds} href="/admin/bookings" cta="Review" highlight={o.flaggedRefunds > 0} />
-          <Card label="Stalled evaluations" value={o.stalledEvals} cta="Paid, not scheduled" highlight={o.stalledEvals > 0} />
+          <Card label="Stalled evaluations" value={o.stalledEvals} href="/admin/evaluations" cta="Review" highlight={o.stalledEvals > 0} />
         </div>
 
         <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-muted">Money</h2>

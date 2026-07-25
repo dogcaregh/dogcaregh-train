@@ -14,6 +14,7 @@ export function AdminNav() {
           <a href="/admin/trainers" className="text-walnut hover:text-espresso">Vetting</a>
           <a href="/admin/users" className="text-walnut hover:text-espresso">Users</a>
           <a href="/admin/bookings" className="text-walnut hover:text-espresso">Bookings</a>
+          <a href="/admin/evaluations" className="text-walnut hover:text-espresso">Evaluations</a>
           <a href="/admin/cashouts" className="text-walnut hover:text-espresso">Cash-outs</a>
           <NotifBell />
           <form action={signOutAction}>

@@ -524,6 +524,20 @@ export async function adminFlagRefund(formData: FormData) {
   redirect("/admin/bookings");
 }
 
+/** Admin-only: nudge a trainer to schedule a paid-but-unscheduled evaluation. */
+export async function adminNudgeTrainerEval(formData: FormData) {
+  const { supabase, user } = await authed();
+  await assertAdmin(supabase, user.id);
+  const evalId = String(formData.get("evaluation_id"));
+  const { data: ev } = await supabase.from("trainer_evaluations").select("trainer_id").eq("id", evalId).maybeSingle();
+  if (ev) {
+    const tuid = await trainerUserId(supabase, ev.trainer_id);
+    if (tuid) await notify(supabase, tuid, "eval_reminder", "Reminder: you have a paid evaluation waiting to be scheduled.", "/trainer/leads", "Evaluation waiting");
+  }
+  revalidatePath("/admin/evaluations");
+  redirect("/admin/evaluations?nudged=1");
+}
+
 /** Admin: process a cash-out — mark paid (with reference) or rejected (with reason). */
 export async function adminProcessCashout(formData: FormData) {
   const { supabase, user } = await authed();
