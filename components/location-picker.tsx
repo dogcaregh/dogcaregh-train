@@ -21,7 +21,12 @@ export function LocationPicker({
 }) {
   const [region, setRegion] = useState(defaultRegion);
   const [hood, setHood] = useState(defaultNeighbourhood);
-  const hoods = neighbourhoodsFor(region);
+  // Alphabetical for easy scanning, with the "Other (…)" catch-all pinned last.
+  const hoods = [...neighbourhoodsFor(region)].sort((a, b) => {
+    const ao = a.name.startsWith("Other"), bo = b.name.startsWith("Other");
+    if (ao !== bo) return ao ? 1 : -1;
+    return a.name.localeCompare(b.name);
+  });
 
   const set = (r: string, h: string) => {
     setRegion(r);
