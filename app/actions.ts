@@ -637,31 +637,47 @@ export async function saveProgram(formData: FormData) {
   if (!trainerId) redirect("/trainer/profile");
 
   const programId = String(formData.get("program_id") ?? "") || null;
-  const price = Number(formData.get("price") || 0);
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) redirect("/trainer/programs?err=name");
+  const price = Math.max(0, Number(formData.get("price") || 0));
   const row = {
     trainer_id: trainerId,
-    name: String(formData.get("name") ?? "").trim(),
+    name,
     description: String(formData.get("description") ?? "").trim() || null,
-    weeks: Number(formData.get("weeks") || 1),
-    sessions_per_week: Number(formData.get("sessions_per_week") || 1),
+    weeks: Math.max(1, Number(formData.get("weeks") || 1)),
+    sessions_per_week: Math.max(1, Number(formData.get("sessions_per_week") || 1)),
     price,
     discount: Math.min(Number(formData.get("discount") || 0), price), // DB: discount <= price
     active: true,
   };
 
   if (programId) {
-    await supabase.from("trainer_programs").update(row).eq("id", programId);
+    await supabase.from("trainer_programs").update(row).eq("id", programId).eq("trainer_id", trainerId);
   } else {
     await supabase.from("trainer_programs").insert(row);
   }
 
   revalidatePath("/trainer/programs");
-  redirect("/trainer/programs");
+  redirect("/trainer/programs?saved=1");
 }
 
 export async function deleteProgram(formData: FormData) {
-  const { supabase } = await authed();
-  await supabase.from("trainer_programs").delete().eq("id", String(formData.get("program_id")));
+  const { supabase, user } = await authed();
+  const trainerId = await myTrainerProfileId(supabase, user.id);
+  if (!trainerId) redirect("/trainer/programs");
+  await supabase.from("trainer_programs").delete().eq("id", String(formData.get("program_id"))).eq("trainer_id", trainerId);
+  revalidatePath("/trainer/programs");
+  redirect("/trainer/programs");
+}
+
+/** Pause/resume a program without deleting it — inactive programs stop showing
+ *  to owners but keep their history. Scoped to the trainer's own programs. */
+export async function setProgramActive(formData: FormData) {
+  const { supabase, user } = await authed();
+  const trainerId = await myTrainerProfileId(supabase, user.id);
+  if (!trainerId) redirect("/trainer/programs");
+  const active = formData.get("active") === "on";
+  await supabase.from("trainer_programs").update({ active }).eq("id", String(formData.get("program_id"))).eq("trainer_id", trainerId);
   revalidatePath("/trainer/programs");
   redirect("/trainer/programs");
 }
