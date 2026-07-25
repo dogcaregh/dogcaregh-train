@@ -67,11 +67,16 @@ async function authed() {
 
 export async function addDog(formData: FormData) {
   const { supabase, user } = await authed();
-  const { data: dog } = await supabase
+  const name = String(formData.get("name") ?? "").trim();
+  const next = String(formData.get("next") || "/dogs");
+  const nextQ = next !== "/dogs" ? `&next=${encodeURIComponent(next)}` : "";
+  if (!name) redirect(`/dogs?err=name${nextQ}`);
+
+  const { data: dog, error } = await supabase
     .from("dogs")
     .insert({
       owner_id: user.id,
-      name: String(formData.get("name") ?? "").trim(),
+      name,
       breed: String(formData.get("breed") ?? "").trim() || null,
       age: formData.get("age") ? Number(formData.get("age")) : null,
       size: String(formData.get("size") ?? "").trim() || null,
@@ -81,20 +86,53 @@ export async function addDog(formData: FormData) {
     .select("id")
     .single();
 
+  if (error || !dog) redirect(`/dogs?err=add${nextQ}`);
+
   // If the owner has no primary dog on their training profile yet, set this one.
-  if (dog) {
-    const { data: profile } = await supabase
-      .from("trainer_owner_profiles")
-      .select("user_id, dog_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    if (profile && !profile.dog_id) {
-      await supabase.from("trainer_owner_profiles").update({ dog_id: dog.id }).eq("user_id", user.id);
-    }
+  const { data: profile } = await supabase
+    .from("trainer_owner_profiles")
+    .select("user_id, dog_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (profile && !profile.dog_id) {
+    await supabase.from("trainer_owner_profiles").update({ dog_id: dog.id }).eq("user_id", user.id);
   }
 
   revalidatePath("/dogs");
-  redirect(String(formData.get("next") || "/dogs"));
+  // Continue the flow if we came from one; otherwise land back with a success note.
+  redirect(next === "/dogs" ? "/dogs?added=1" : next);
+}
+
+export async function updateDog(formData: FormData) {
+  const { supabase, user } = await authed();
+  const id = String(formData.get("dog_id"));
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) redirect("/dogs?err=name");
+  const breed = String(formData.get("breed") ?? "").trim() || null;
+
+  const { error } = await supabase
+    .from("dogs")
+    .update({
+      name,
+      breed,
+      age: formData.get("age") ? Number(formData.get("age")) : null,
+      size: String(formData.get("size") ?? "").trim() || null,
+      temperament: String(formData.get("temperament") ?? "").trim() || null,
+      vaccination_status: formData.get("vaccination_status") === "on",
+    })
+    .eq("id", id)
+    .eq("owner_id", user.id); // ownership guard — can't edit someone else's dog
+  if (error) redirect("/dogs?err=update");
+
+  // Keep the denormalised name/breed on the owner profile fresh (ranking signal).
+  await supabase
+    .from("trainer_owner_profiles")
+    .update({ dog_name: name, dog_breed: breed })
+    .eq("user_id", user.id)
+    .eq("dog_id", id);
+
+  revalidatePath("/dogs");
+  redirect("/dogs?updated=1");
 }
 
 export async function saveOwnerProfile(formData: FormData) {

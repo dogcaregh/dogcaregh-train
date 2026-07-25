@@ -1,4 +1,5 @@
 import { OwnerNav } from "@/components/owner-nav";
+import { DogCard } from "@/components/dog-card";
 import { getMyDogs } from "@/lib/owner-data";
 import { addDog } from "@/app/actions";
 
@@ -7,9 +8,21 @@ export const dynamic = "force-dynamic";
 const SIZES = ["small", "medium", "large", "xlarge"];
 const TEMPERAMENTS = ["friendly", "selective", "nervous"];
 
-export default async function DogsPage({ searchParams }: { searchParams: { next?: string } }) {
+const ERR_MSG: Record<string, string> = {
+  name: "Please enter your dog's name.",
+  add: "Couldn't add your dog — please try again.",
+  update: "Couldn't save your changes — please try again.",
+};
+
+export default async function DogsPage({
+  searchParams,
+}: {
+  searchParams: { next?: string; err?: string; added?: string; updated?: string };
+}) {
   const dogs = await getMyDogs();
   const next = searchParams.next ?? "/dogs";
+  const errText = searchParams.err ? ERR_MSG[searchParams.err] : null;
+  const okText = searchParams.added ? "Dog added." : searchParams.updated ? "Changes saved." : null;
 
   return (
     <>
@@ -20,6 +33,12 @@ export default async function DogsPage({ searchParams }: { searchParams: { next?
           Bookings are made per dog. Your DogCareGH dogs show here too — it&apos;s the same profile.
         </p>
 
+        {errText && (
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{errText}</div>
+        )}
+        {okText && (
+          <div className="mt-4 rounded-xl border border-gold/40 bg-[rgba(185,138,50,0.10)] p-4 text-sm text-walnut">✓ {okText}</div>
+        )}
         {searchParams.next && dogs.length === 0 && (
           <div className="mt-4 rounded-xl bg-cream border border-hairline p-4 text-sm text-walnut">
             Add your dog to continue booking.
@@ -29,15 +48,7 @@ export default async function DogsPage({ searchParams }: { searchParams: { next?
         {dogs.length > 0 && (
           <div className="mt-6 grid gap-3">
             {dogs.map((d) => (
-              <div key={d.id} className="rounded-xl bg-white border border-hairline p-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-espresso font-semibold">{d.name}</p>
-                  {d.vaccination_status && <span className="text-xs text-gold font-semibold">✓ Vaccinated</span>}
-                </div>
-                <p className="text-xs text-muted mt-0.5">
-                  {[d.breed, d.size, d.age != null ? `${d.age} mo` : null, d.temperament].filter(Boolean).join(" · ") || "—"}
-                </p>
-              </div>
+              <DogCard key={d.id} dog={d} />
             ))}
           </div>
         )}
