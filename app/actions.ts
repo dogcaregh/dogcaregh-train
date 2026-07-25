@@ -17,6 +17,13 @@ export async function markAllNotificationsRead() {
   revalidatePath("/", "layout");
 }
 
+/** Mark one notification read (on click). Scoped to the caller's own rows. */
+export async function markNotificationRead(id: string) {
+  const { supabase, user } = await authed();
+  await supabase.from("trainer_notifications").update({ read: true }).eq("id", id).eq("user_id", user.id);
+  revalidatePath("/", "layout");
+}
+
 /** users.id of the trainer behind a trainer_profiles.id (for notifications). */
 async function trainerUserId(
   supabase: Awaited<ReturnType<typeof authed>>["supabase"],

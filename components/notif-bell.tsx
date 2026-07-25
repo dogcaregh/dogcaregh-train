@@ -18,5 +18,5 @@ export async function NotifBell() {
     getUnreadCount(supabase, user.id),
   ]);
 
-  return <NotifDropdown items={data ?? []} unread={unread} />;
+  return <NotifDropdown items={data ?? []} unread={unread} userId={user.id} />;
 }

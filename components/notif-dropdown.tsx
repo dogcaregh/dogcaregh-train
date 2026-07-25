@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { markAllNotificationsRead } from "@/app/actions";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase";
+import { markAllNotificationsRead, markNotificationRead } from "@/app/actions";
 
 type Item = { id: string; message: string; link: string | null; read: boolean; created_at: string };
 
@@ -15,16 +16,56 @@ function ago(iso: string) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-export function NotifDropdown({ items, unread }: { items: Item[]; unread: number }) {
+export function NotifDropdown({
+  items: initialItems,
+  unread: initialUnread,
+  userId,
+}: {
+  items: Item[];
+  unread: number;
+  userId: string;
+}) {
   const [open, setOpen] = useState(false);
+  const [items, setItems] = useState(initialItems);
+  const [unread, setUnread] = useState(initialUnread);
+
+  // Live updates: new notifications for this user land in the dropdown without a
+  // page load. RLS ("own select") limits the stream to our own rows; the filter
+  // is a belt-and-braces narrowing.
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`notifs:${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "trainer_notifications", filter: `user_id=eq.${userId}` },
+        (payload) => {
+          const n = payload.new as Item;
+          setItems((cur) => [n, ...cur.filter((x) => x.id !== n.id)].slice(0, 8));
+          setUnread((c) => c + 1);
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
+
+  const onItemClick = (n: Item) => {
+    if (n.read) return;
+    setItems((cur) => cur.map((x) => (x.id === n.id ? { ...x, read: true } : x)));
+    setUnread((c) => Math.max(0, c - 1));
+    void markNotificationRead(n.id); // fire-and-forget; navigation follows the href
+  };
+
+  const onMarkAll = () => {
+    setItems((cur) => cur.map((x) => ({ ...x, read: true })));
+    setUnread(0);
+  };
 
   return (
     <div className="relative">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="relative text-walnut hover:text-espresso"
-        aria-label="Notifications"
-      >
+      <button onClick={() => setOpen((o) => !o)} className="relative text-walnut hover:text-espresso" aria-label="Notifications">
         <span className="text-base">🔔</span>
         {unread > 0 && (
           <span className="absolute -top-2 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-gold text-ivory text-[10px] font-bold flex items-center justify-center">
@@ -40,7 +81,7 @@ export function NotifDropdown({ items, unread }: { items: Item[]; unread: number
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-hairline sticky top-0 bg-white">
               <span className="text-sm font-semibold text-espresso">Notifications</span>
               {unread > 0 && (
-                <form action={markAllNotificationsRead}>
+                <form action={markAllNotificationsRead} onSubmit={onMarkAll}>
                   <button className="text-xs text-gold font-semibold hover:underline">Mark all read</button>
                 </form>
               )}
@@ -53,6 +94,7 @@ export function NotifDropdown({ items, unread }: { items: Item[]; unread: number
                 <a
                   key={n.id}
                   href={n.link || "/"}
+                  onClick={() => onItemClick(n)}
                   className={`block px-4 py-3 border-b border-hairline/60 hover:bg-cream transition-colors ${n.read ? "" : "bg-[rgba(185,138,50,0.06)]"}`}
                 >
                   <div className="flex items-start gap-2">
