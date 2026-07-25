@@ -29,3 +29,9 @@ export function splitAmount(gross: number): { commission: number; payout: number
   const payout = Math.round((gross - commission) * 100) / 100;
   return { commission, payout };
 }
+
+/** Trainer's NET release per session — the payout split evenly across all
+ *  sessions, accruing to their balance as each session is marked complete. */
+export function perSessionRelease(payout: number, sessionsTotal: number): number {
+  return Math.round((payout / Math.max(sessionsTotal, 1)) * 100) / 100;
+}

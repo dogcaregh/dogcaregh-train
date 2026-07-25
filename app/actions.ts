@@ -6,7 +6,7 @@ import { headers } from "next/headers";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { completedBookingExists } from "@/lib/owner-data";
 import { trainerEarnings } from "@/lib/trainer-data";
-import { programTotal, totalSessions, splitAmount, cedis } from "@/lib/pricing";
+import { programTotal, totalSessions, splitAmount, perSessionRelease, cedis } from "@/lib/pricing";
 import { paystackEnabled, initTransaction } from "@/lib/paystack";
 import { notify } from "@/lib/notify";
 
@@ -781,7 +781,7 @@ async function createBookingWithSessions(
 
   // release_amount is the trainer's NET per session (after 15% commission);
   // it accrues to the trainer's balance when the session is marked complete.
-  const perSession = Math.round((payout / Math.max(a.sessionsTotal, 1)) * 100) / 100;
+  const perSession = perSessionRelease(payout, a.sessionsTotal);
   const rows = Array.from({ length: a.sessionsTotal }, (_, i) => ({
     booking_id: booking.id,
     seq: i + 1, // fixed display order; never renumbered on schedule/complete
