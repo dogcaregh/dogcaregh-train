@@ -95,6 +95,18 @@ preview URL during validation). Site URL stays unchanged.
 
 ## Cron
 
-`vercel.json` runs `/api/cron/session-reminders` daily at 08:00 UTC (Ghana is
-UTC+0), notifying both parties ~24h before a scheduled session. It requires
-`SUPABASE_SERVICE_ROLE_KEY` and, if set, a `CRON_SECRET` bearer token.
+`vercel.json` schedules two Vercel Crons (both require `SUPABASE_SERVICE_ROLE_KEY`
+and, if set, a `CRON_SECRET` bearer token):
+
+- `/api/cron/session-reminders` — daily at 08:00 UTC (Ghana is UTC+0), notifies
+  both parties ~24h before a scheduled session.
+- `/api/cron/payment-reconcile` — hourly. Backstop for lost payment redirects:
+  re-verifies recent successful Paystack transactions and applies any whose
+  `/payment/callback` redirect never landed (money taken but record still
+  unpaid). Acts only on our `dogtrain_`-prefixed references, so the shared
+  Paystack account's care-app transactions are never touched. (On the Vercel
+  Hobby plan, which limits crons to once/day, change this to a daily schedule —
+  the 2-day re-check window still catches everything.)
+
+Payments in production go through Paystack; if the key is missing there, checkout
+is refused rather than stubbed (see `stubCheckoutAllowed`).

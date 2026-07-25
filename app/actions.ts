@@ -7,7 +7,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { completedBookingExists } from "@/lib/owner-data";
 import { trainerEarnings } from "@/lib/trainer-data";
 import { programTotal, totalSessions, splitAmount, perSessionRelease, cedis } from "@/lib/pricing";
-import { paystackEnabled, initTransaction } from "@/lib/paystack";
+import { paystackEnabled, initTransaction, stubCheckoutAllowed } from "@/lib/paystack";
 import { notify } from "@/lib/notify";
 
 export async function markAllNotificationsRead() {
@@ -203,6 +203,10 @@ export async function bookEvaluation(formData: FormData) {
   const url = await beginCheckout("evaluation", ev.id, fee, user.email ?? "");
   if (url) redirect(url); // → Paystack; the callback marks it paid
 
+  // No Paystack URL. Outside production we stub it paid so the flow stays
+  // testable; in production we refuse rather than give away a free evaluation.
+  if (!stubCheckoutAllowed()) redirect("/bookings?paid=unavailable");
+
   // No Paystack key yet → treat as paid so the flow stays testable.
   await supabase
     .from("trainer_evaluations")
@@ -255,6 +259,7 @@ export async function rebookProgram(formData: FormData) {
 
   const url = await beginCheckout("booking", booking.id, booking.gross, user.email ?? "");
   if (url) redirect(url);
+  if (!stubCheckoutAllowed()) redirect("/bookings?paid=unavailable");
 
   await markBookingPaidStub(supabase, booking.id);
   const rebookTrainerUid = await trainerUserId(supabase, prog.trainer_id);
@@ -299,6 +304,7 @@ export async function acceptRecommendation(formData: FormData) {
 
   const url = await beginCheckout("booking", booking.id, booking.gross, user.email ?? "");
   if (url) redirect(url);
+  if (!stubCheckoutAllowed()) redirect("/bookings?paid=unavailable");
 
   await markBookingPaidStub(supabase, booking.id);
   const acceptTrainerUid = await trainerUserId(supabase, rec.trainer_id);

@@ -14,6 +14,7 @@ const PAID_MSG: Record<string, string> = {
   "1": "Payment successful — you're all set.",
   failed: "Payment wasn't completed. You can try again from the trainer's page.",
   mismatch: "Payment amount didn't match — nothing was charged to your booking.",
+  unavailable: "Payments are temporarily unavailable — nothing was charged. Please try again shortly.",
 };
 
 export default async function BookingsPage({
@@ -29,7 +30,10 @@ export default async function BookingsPage({
       : searchParams.booked
         ? BOOKED_MSG[searchParams.booked]
         : null;
-  const bannerBad = searchParams.paid === "failed" || searchParams.paid === "mismatch";
+  const bannerBad =
+    searchParams.paid === "failed" ||
+    searchParams.paid === "mismatch" ||
+    searchParams.paid === "unavailable";
 
   return (
     <>
