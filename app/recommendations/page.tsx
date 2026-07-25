@@ -1,5 +1,5 @@
 import { OwnerNav } from "@/components/owner-nav";
-import { SubmitButton } from "@/components/submit-button";
+import { ConfirmPay } from "@/components/confirm-pay";
 import { listMyRecommendations } from "@/lib/owner-data";
 import { acceptRecommendation } from "@/app/actions";
 import { cedis, programTotal, totalSessions, multiDogTotal } from "@/lib/pricing";
@@ -81,15 +81,23 @@ export default async function RecommendationsPage() {
                     {done ? (
                       <span className="text-xs text-muted capitalize">{r.status}</span>
                     ) : (
-                      <form action={acceptRecommendation}>
-                        <input type="hidden" name="recommendation_id" value={r.id} />
-                        <SubmitButton
-                          className="rounded-full bg-walnut text-ivory text-sm font-semibold px-5 py-2 hover:bg-mahogany transition-colors disabled:opacity-60"
-                          pendingText="Booking…"
-                        >
-                          Accept &amp; book
-                        </SubmitButton>
-                      </form>
+                      <ConfirmPay
+                        triggerLabel="Accept & book"
+                        triggerClassName="rounded-full bg-walnut text-ivory text-sm font-semibold px-5 py-2 hover:bg-mahogany transition-colors"
+                        title={r.name ?? "Recommended program"}
+                        summary={
+                          <ul className="space-y-1.5">
+                            <li className="flex items-center justify-between gap-4"><span className="text-muted">Trainer</span><span className="text-espresso text-right">{r.trainerName}</span></li>
+                            {dogsLabel && <li className="flex items-center justify-between gap-4"><span className="text-muted">{multiDog ? "Dogs" : "Dog"}</span><span className="text-espresso text-right">{dogsLabel}</span></li>}
+                            <li className="flex items-center justify-between gap-4"><span className="text-muted">Sessions</span><span className="text-espresso">{sessions}{multiDog ? ` × ${r.dogCount} dogs` : ""}</span></li>
+                            <li className="flex items-center justify-between border-t border-hairline pt-1.5 mt-1.5"><span className="font-semibold text-espresso">Total</span><span className="font-semibold text-espresso">{cedis(total)}</span></li>
+                          </ul>
+                        }
+                        confirmLabel="Confirm & pay"
+                        pendingText="Booking…"
+                        action={acceptRecommendation}
+                        fields={{ recommendation_id: r.id }}
+                      />
                     )}
                   </div>
                 </div>

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { bookEvaluation, rebookProgram } from "@/app/actions";
-import { SubmitButton } from "@/components/submit-button";
+import { ConfirmPay } from "@/components/confirm-pay";
 import { cedis, programTotal, totalSessions, multiDogTotal } from "@/lib/pricing";
 
 type Program = {
@@ -57,9 +57,23 @@ export function BookingActions({
 
   const count = selected.length;
   const none = count === 0;
-  // Hidden dog_ids inputs for a form (one per selected dog, order preserved).
-  const dogInputs = selected.map((id) => <input key={id} type="hidden" name="dog_ids" value={id} />);
   const discountApplies = count >= 2 && multiDogDiscount > 0;
+  const selectedDogs = dogs.filter((d) => selected.includes(d.id));
+  const dogNames = selectedDogs.map((d) => d.name).join(", ");
+  const cleanName = trainerName.replace(/^DEMO · /, "");
+
+  const evalSummary = (progName?: string) => (
+    <ul className="space-y-1.5">
+      <SumRow label="Trainer" value={cleanName} />
+      <SumRow label={count > 1 ? "Dogs" : "Dog"} value={dogNames} />
+      {progName && <SumRow label="Interested in" value={progName} />}
+      <li className="flex items-center justify-between border-t border-hairline pt-1.5 mt-1.5">
+        <span className="font-semibold text-espresso">Evaluation fee</span>
+        <span className="font-semibold text-espresso">{cedis(evalFee)}</span>
+      </li>
+      {count > 1 && <li className="text-xs text-muted">One fee covers all {count} dogs.</li>}
+    </ul>
+  );
 
   return (
     <>
@@ -103,22 +117,30 @@ export function BookingActions({
 
         <div className="mt-4 grid gap-2">
           {programs.map((p) => (
-            <form key={p.id} action={bookEvaluation}>
-              <input type="hidden" name="trainer_id" value={trainerId} />
-              <input type="hidden" name="program_id" value={p.id} />
-              {dogInputs}
-              <SubmitButton disabled={none} pendingText="Starting…" className="w-full text-left rounded-lg border border-hairline bg-white px-4 py-2.5 text-sm text-walnut hover:border-gold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-                Evaluate for <strong className="text-espresso">{p.name}</strong>
-              </SubmitButton>
-            </form>
+            <ConfirmPay
+              key={p.id}
+              triggerLabel={<>Evaluate for <strong className="text-espresso">{p.name}</strong></>}
+              triggerClassName="w-full text-left rounded-lg border border-hairline bg-white px-4 py-2.5 text-sm text-walnut hover:border-gold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              disabled={none}
+              title="Book an evaluation"
+              summary={evalSummary(p.name)}
+              confirmLabel="Confirm & pay"
+              pendingText="Starting…"
+              action={bookEvaluation}
+              fields={{ trainer_id: trainerId, program_id: p.id, dog_ids: selected }}
+            />
           ))}
-          <form action={bookEvaluation}>
-            <input type="hidden" name="trainer_id" value={trainerId} />
-            {dogInputs}
-            <SubmitButton disabled={none} pendingText="Starting…" className="w-full text-left rounded-lg border border-dashed border-hairline bg-white px-4 py-2.5 text-sm text-muted hover:border-gold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-              Not sure yet — general evaluation
-            </SubmitButton>
-          </form>
+          <ConfirmPay
+            triggerLabel="Not sure yet — general evaluation"
+            triggerClassName="w-full text-left rounded-lg border border-dashed border-hairline bg-white px-4 py-2.5 text-sm text-muted hover:border-gold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            disabled={none}
+            title="Book an evaluation"
+            summary={evalSummary()}
+            confirmLabel="Confirm & pay"
+            pendingText="Starting…"
+            action={bookEvaluation}
+            fields={{ trainer_id: trainerId, dog_ids: selected }}
+          />
         </div>
       </section>
 
@@ -156,23 +178,48 @@ export function BookingActions({
                     {cedis(perDog)} × {count} dogs{discountApplies ? ` · −${multiDogDiscount}%` : ""} = <strong className="text-espresso">{cedis(total)}</strong>
                   </div>
                 )}
-                <form action={rebookProgram} className="mt-3">
-                  <input type="hidden" name="program_id" value={p.id} />
-                  {dogInputs}
-                  <SubmitButton
+                <div className="mt-3">
+                  <ConfirmPay
+                    triggerLabel="Rebook directly"
+                    triggerClassName="rounded-full bg-walnut text-ivory text-xs font-semibold px-4 py-2 hover:bg-mahogany transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-walnut"
+                    triggerTitle={canRebook ? undefined : "Complete a program with this trainer to rebook directly"}
                     disabled={!canRebook || none}
+                    title={`Book ${p.name}`}
+                    summary={
+                      <ul className="space-y-1.5">
+                        <SumRow label="Trainer" value={cleanName} />
+                        <SumRow label="Program" value={p.name} />
+                        <SumRow label={count > 1 ? "Dogs" : "Dog"} value={dogNames} />
+                        <SumRow label="Sessions" value={`${totalSessions(p.sessions_per_week, p.weeks)} (${p.sessions_per_week}×/week · ${p.weeks} wks)`} />
+                        {count > 1 && (
+                          <SumRow label={`${cedis(perDog)} × ${count} dogs${discountApplies ? ` · −${multiDogDiscount}%` : ""}`} value="" />
+                        )}
+                        <li className="flex items-center justify-between border-t border-hairline pt-1.5 mt-1.5">
+                          <span className="font-semibold text-espresso">Total</span>
+                          <span className="font-semibold text-espresso">{cedis(total)}</span>
+                        </li>
+                      </ul>
+                    }
+                    confirmLabel="Confirm & pay"
                     pendingText="Booking…"
-                    title={canRebook ? undefined : "Complete a program with this trainer to rebook directly"}
-                    className="rounded-full bg-walnut text-ivory text-xs font-semibold px-4 py-2 hover:bg-mahogany transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-walnut"
-                  >
-                    Rebook directly
-                  </SubmitButton>
-                </form>
+                    action={rebookProgram}
+                    fields={{ program_id: p.id, dog_ids: selected }}
+                  />
+                </div>
               </div>
             );
           })}
         </div>
       </section>
     </>
+  );
+}
+
+function SumRow({ label, value }: { label: string; value: string }) {
+  return (
+    <li className="flex items-center justify-between gap-4">
+      <span className="text-muted">{label}</span>
+      {value && <span className="text-espresso text-right">{value}</span>}
+    </li>
   );
 }
