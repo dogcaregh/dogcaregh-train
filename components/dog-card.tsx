@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useFormState } from "react-dom";
 import { updateDog } from "@/app/actions";
 import { SubmitButton } from "@/components/submit-button";
 
@@ -19,6 +20,7 @@ const TEMPERAMENTS = ["friendly", "selective", "nervous"];
 
 export function DogCard({ dog }: { dog: Dog }) {
   const [editing, setEditing] = useState(false);
+  const [state, action] = useFormState(updateDog, null);
 
   if (!editing) {
     return (
@@ -40,8 +42,11 @@ export function DogCard({ dog }: { dog: Dog }) {
   }
 
   return (
-    <form action={updateDog} className="rounded-xl bg-white border border-gold/40 p-4 space-y-3">
+    <form action={action} className="rounded-xl bg-white border border-gold/40 p-4 space-y-3">
       <input type="hidden" name="dog_id" value={dog.id} />
+      {state?.error && (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>
+      )}
       <div className="grid grid-cols-2 gap-3">
         <Field name="name" label="Name" defaultValue={dog.name} required />
         <Field name="breed" label="Breed" defaultValue={dog.breed ?? ""} />

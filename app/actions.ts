@@ -65,28 +65,40 @@ async function authed() {
   return { supabase, user };
 }
 
-export async function addDog(formData: FormData) {
+// Form state for useActionState — an error message keeps the user on the form
+// with an inline message (and their typed values) instead of a blind redirect.
+export type DogFormState = {
+  error?: string;
+  values?: { name: string; breed: string; age: string; size: string; temperament: string; vaccination_status: boolean };
+} | null;
+
+export async function addDog(_prev: DogFormState, formData: FormData): Promise<DogFormState> {
   const { supabase, user } = await authed();
-  const name = String(formData.get("name") ?? "").trim();
-  const next = String(formData.get("next") || "/dogs");
-  const nextQ = next !== "/dogs" ? `&next=${encodeURIComponent(next)}` : "";
-  if (!name) redirect(`/dogs?err=name${nextQ}`);
+  const echo = {
+    name: String(formData.get("name") ?? "").trim(),
+    breed: String(formData.get("breed") ?? ""),
+    age: String(formData.get("age") ?? ""),
+    size: String(formData.get("size") ?? ""),
+    temperament: String(formData.get("temperament") ?? ""),
+    vaccination_status: formData.get("vaccination_status") === "on",
+  };
+  if (!echo.name) return { error: "Please enter your dog's name.", values: echo };
 
   const { data: dog, error } = await supabase
     .from("dogs")
     .insert({
       owner_id: user.id,
-      name,
-      breed: String(formData.get("breed") ?? "").trim() || null,
-      age: formData.get("age") ? Number(formData.get("age")) : null,
-      size: String(formData.get("size") ?? "").trim() || null,
-      temperament: String(formData.get("temperament") ?? "").trim() || null,
-      vaccination_status: formData.get("vaccination_status") === "on",
+      name: echo.name,
+      breed: echo.breed.trim() || null,
+      age: echo.age ? Number(echo.age) : null,
+      size: echo.size.trim() || null,
+      temperament: echo.temperament.trim() || null,
+      vaccination_status: echo.vaccination_status,
     })
     .select("id")
     .single();
 
-  if (error || !dog) redirect(`/dogs?err=add${nextQ}`);
+  if (error || !dog) return { error: "Couldn't add your dog — please try again.", values: echo };
 
   // If the owner has no primary dog on their training profile yet, set this one.
   const { data: profile } = await supabase
@@ -100,14 +112,15 @@ export async function addDog(formData: FormData) {
 
   revalidatePath("/dogs");
   // Continue the flow if we came from one; otherwise land back with a success note.
+  const next = String(formData.get("next") || "/dogs");
   redirect(next === "/dogs" ? "/dogs?added=1" : next);
 }
 
-export async function updateDog(formData: FormData) {
+export async function updateDog(_prev: DogFormState, formData: FormData): Promise<DogFormState> {
   const { supabase, user } = await authed();
   const id = String(formData.get("dog_id"));
   const name = String(formData.get("name") ?? "").trim();
-  if (!name) redirect("/dogs?err=name");
+  if (!name) return { error: "Please enter your dog's name." };
   const breed = String(formData.get("breed") ?? "").trim() || null;
 
   const { error } = await supabase
@@ -122,7 +135,7 @@ export async function updateDog(formData: FormData) {
     })
     .eq("id", id)
     .eq("owner_id", user.id); // ownership guard — can't edit someone else's dog
-  if (error) redirect("/dogs?err=update");
+  if (error) return { error: "Couldn't save your changes — please try again." };
 
   // Keep the denormalised name/breed on the owner profile fresh (ranking signal).
   await supabase
