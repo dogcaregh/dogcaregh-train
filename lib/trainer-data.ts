@@ -22,6 +22,8 @@ export type TrainerProfile = {
   avatar_url: string | null;
   gallery_photos: string[];
   multi_dog_discount: number;
+  phone: string | null;
+  location: string | null;
 };
 
 /** My trainer profile (or null if I haven't created one). Deduped per request. */
@@ -29,15 +31,18 @@ export const getMyTrainerProfile = cache(async (): Promise<TrainerProfile | null
   const { supabase, user } = await requireUser();
   const BASE =
     "id, user_id, bio, specialties, breeds, neighbourhoods, methods, credentials, years_experience, eval_fee, vetting_status, active, rating_avg, review_count, avatar_url, gallery_photos";
-  // Prefer multi_dog_discount; fall back if the migration isn't applied yet.
-  const withDisc = await supabase.from("trainer_profiles").select(BASE + ", multi_dog_discount").eq("user_id", user.id).maybeSingle();
-  const data = withDisc.error
+  // Prefer the later-migration columns; fall back if they aren't applied yet.
+  const withExtra = await supabase.from("trainer_profiles").select(BASE + ", multi_dog_discount, phone, location").eq("user_id", user.id).maybeSingle();
+  const data = withExtra.error
     ? (await supabase.from("trainer_profiles").select(BASE).eq("user_id", user.id).maybeSingle()).data
-    : withDisc.data;
+    : withExtra.data;
   if (!data) return null;
+  const d = data as Record<string, unknown>;
   return {
     ...(data as TrainerProfile),
-    multi_dog_discount: Number((data as { multi_dog_discount?: number }).multi_dog_discount ?? 0),
+    multi_dog_discount: Number((d.multi_dog_discount as number) ?? 0),
+    phone: (d.phone as string | null) ?? null,
+    location: (d.location as string | null) ?? null,
   };
 });
 

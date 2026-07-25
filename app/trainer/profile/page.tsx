@@ -1,12 +1,15 @@
 import { TrainerNav } from "@/components/trainer-nav";
 import { TrainerPhotos } from "@/components/trainer-photos";
 import { getMyTrainerProfile } from "@/lib/trainer-data";
+import { getServerUser } from "@/lib/owner-data";
 import { saveTrainerProfile } from "@/app/actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function TrainerProfilePage() {
-  const p = await getMyTrainerProfile();
+  const [p, user] = await Promise.all([getMyTrainerProfile(), getServerUser()]);
+  // Prefill contact from the profile, else from what was captured at signup.
+  const meta = (user?.user_metadata ?? {}) as { phone?: string; location?: string };
 
   return (
     <>
@@ -23,6 +26,10 @@ export default async function TrainerProfilePage() {
           <Field name="specialties" label="Specialties" placeholder="Obedience, Puppy training" defaultValue={(p?.specialties ?? []).join(", ")} />
           <Field name="breeds" label="Breeds you work with" placeholder="German Shepherd, All breeds" defaultValue={(p?.breeds ?? []).join(", ")} />
           <Field name="neighbourhoods" label="Neighbourhoods served" placeholder="East Legon, Cantonments" defaultValue={(p?.neighbourhoods ?? []).join(", ")} />
+          <div className="grid grid-cols-2 gap-4">
+            <Field name="phone" label="Phone number" type="tel" required defaultValue={p?.phone ?? meta.phone ?? ""} />
+            <Field name="location" label="Location" required defaultValue={p?.location ?? meta.location ?? ""} />
+          </div>
           <Field name="methods" label="Methods" placeholder="Positive reinforcement" defaultValue={p?.methods ?? ""} />
           <Field name="credentials" label="Credentials" defaultValue={p?.credentials ?? ""} />
           <div className="grid grid-cols-2 gap-4">
@@ -53,11 +60,11 @@ export default async function TrainerProfilePage() {
   );
 }
 
-function Field({ name, label, defaultValue, type = "text", placeholder }: { name: string; label: string; defaultValue?: string; type?: string; placeholder?: string }) {
+function Field({ name, label, defaultValue, type = "text", placeholder, required }: { name: string; label: string; defaultValue?: string; type?: string; placeholder?: string; required?: boolean }) {
   return (
     <label className="block">
       <span className="text-sm font-semibold text-walnut">{label}</span>
-      <input name={name} type={type} defaultValue={defaultValue} placeholder={placeholder} min={type === "number" ? 0 : undefined}
+      <input name={name} type={type} defaultValue={defaultValue} placeholder={placeholder} required={required} min={type === "number" ? 0 : undefined}
         className="mt-1 w-full rounded-lg border border-hairline bg-ivory px-3 py-2 text-espresso outline-none focus:border-gold" />
     </label>
   );

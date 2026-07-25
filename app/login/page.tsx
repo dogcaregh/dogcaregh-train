@@ -9,6 +9,7 @@ const CARE_APP = "https://dogcaregh.com";
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -57,12 +58,17 @@ export default function LoginPage() {
             <span className="text-sm font-semibold text-walnut">Password</span>
             <input
               required
-              type="password"
+              type={showPw ? "text" : "password"}
               value={password}
               autoComplete="current-password"
               onChange={(e) => setPassword(e.target.value)}
               className="mt-1 w-full rounded-lg border border-hairline bg-ivory px-3 py-2 text-espresso outline-none focus:border-gold"
             />
+          </label>
+
+          <label className="flex items-center gap-2 text-sm text-walnut">
+            <input type="checkbox" checked={showPw} onChange={(e) => setShowPw(e.target.checked)} className="accent-gold" />
+            Show password
           </label>
 
           {error && <p className="text-sm text-red-700">{error}</p>}

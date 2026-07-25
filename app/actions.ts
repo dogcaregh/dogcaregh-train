@@ -446,8 +446,14 @@ export async function saveTrainerProfile(formData: FormData) {
     eval_fee: evalFee,
     active: true,
   };
-  // multi_dog_discount is applied on top; retried away if the column isn't there yet.
-  const withDiscount = { ...base, multi_dog_discount: multiDogDiscount };
+  // Columns added by later migrations, layered on top; if any isn't applied yet
+  // the write is retried with just `base`.
+  const full = {
+    ...base,
+    multi_dog_discount: multiDogDiscount,
+    phone: String(formData.get("phone") ?? "").trim() || null,
+    location: String(formData.get("location") ?? "").trim() || null,
+  };
 
   // Provisioning: any signed-in user can apply to be a trainer — including an
   // existing DogCareGH owner. The vetting_status='pending' gate (admin approval
@@ -455,10 +461,10 @@ export async function saveTrainerProfile(formData: FormData) {
   // origin. Nothing here makes a trainer visible without that approval.
   const existing = await myTrainerProfileId(supabase, user.id);
   if (existing) {
-    const { error } = await supabase.from("trainer_profiles").update(withDiscount).eq("user_id", user.id);
+    const { error } = await supabase.from("trainer_profiles").update(full).eq("user_id", user.id);
     if (error) await supabase.from("trainer_profiles").update(base).eq("user_id", user.id);
   } else {
-    const { error } = await supabase.from("trainer_profiles").insert({ ...withDiscount, vetting_status: "pending" });
+    const { error } = await supabase.from("trainer_profiles").insert({ ...full, vetting_status: "pending" });
     if (error) await supabase.from("trainer_profiles").insert({ ...base, vetting_status: "pending" });
     // Stamp this account as trainer-origin so trainer-facing UI treats it as one
     // (landing next-action, notifications nav). One account can be owner + trainer.

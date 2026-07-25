@@ -7,7 +7,11 @@ import { createClient } from "@/lib/supabase";
 export default function TrainerSignup() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [location, setLocation] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [showPw, setShowPw] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "sent" | "error">(
     "idle"
   );
@@ -15,9 +19,25 @@ export default function TrainerSignup() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setStatus("loading");
     setError("");
 
+    if (!name.trim() || !phone.trim() || !location.trim()) {
+      setError("Please fill in your name, phone number, and location.");
+      setStatus("error");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      setStatus("error");
+      return;
+    }
+    if (password !== confirm) {
+      setError("Passwords don't match.");
+      setStatus("error");
+      return;
+    }
+
+    setStatus("loading");
     const supabase = createClient();
     const { error } = await supabase.auth.signUp({
       email,
@@ -25,7 +45,7 @@ export default function TrainerSignup() {
       options: {
         // role is stamped in metadata now; the users.is_trainer flag is set
         // when the trainer profile is created (Phase 3, sub-step 3).
-        data: { name, role: "trainer" },
+        data: { name, role: "trainer", phone: phone.trim(), location: location.trim() },
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
@@ -73,12 +93,37 @@ export default function TrainerSignup() {
               autoComplete="email"
             />
             <Field
+              label="Phone number"
+              value={phone}
+              onChange={setPhone}
+              type="tel"
+              autoComplete="tel"
+            />
+            <Field
+              label="Location"
+              value={location}
+              onChange={setLocation}
+              type="text"
+              autoComplete="address-level2"
+            />
+            <Field
               label="Password"
               value={password}
               onChange={setPassword}
-              type="password"
+              type={showPw ? "text" : "password"}
               autoComplete="new-password"
             />
+            <Field
+              label="Confirm password"
+              value={confirm}
+              onChange={setConfirm}
+              type={showPw ? "text" : "password"}
+              autoComplete="new-password"
+            />
+            <label className="flex items-center gap-2 text-sm text-walnut">
+              <input type="checkbox" checked={showPw} onChange={(e) => setShowPw(e.target.checked)} className="accent-gold" />
+              Show password
+            </label>
 
             {error && <p className="text-sm text-red-700">{error}</p>}
 
