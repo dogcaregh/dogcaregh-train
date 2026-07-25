@@ -286,14 +286,91 @@ export async function listMyEvaluations() {
   return data ?? [];
 }
 
-export async function listMyRecommendations() {
+export type RecCard = {
+  id: string;
+  trainer_id: string;
+  name: string | null;
+  description: string | null;
+  is_custom: boolean;
+  sessions_per_week: number;
+  weeks: number;
+  price: number;
+  discount: number;
+  note: string | null;
+  status: string;
+  created_at: string;
+  trainerName: string;
+  dogNames: string[];
+  dogCount: number; // ≥ 1 — drives the per-dog service total
+  multiDogDiscount: number;
+};
+
+/** Evaluation dog ids off a recommendation's joined evaluation (full set, or the
+ *  single primary dog for legacy rows). */
+function recEvalDogIds(rec: { trainer_evaluations?: unknown }): string[] {
+  const ev = (Array.isArray(rec.trainer_evaluations) ? rec.trainer_evaluations[0] : rec.trainer_evaluations) as
+    | { dog_id?: string | null; dog_ids?: string[] | null }
+    | null
+    | undefined;
+  if (!ev) return [];
+  if (ev.dog_ids && ev.dog_ids.length) return ev.dog_ids;
+  return ev.dog_id ? [ev.dog_id] : [];
+}
+
+export async function listMyRecommendations(): Promise<RecCard[]> {
   const { supabase, user } = await requireUser();
-  const { data } = await supabase
+  const FULL =
+    "id, trainer_id, name, description, is_custom, sessions_per_week, weeks, price, discount, note, status, created_at, trainer_profiles(users(name), multi_dog_discount), trainer_evaluations(dog_id, dog_ids)";
+  // Fall back if the multi-dog columns aren't applied yet (keeps the page alive).
+  const withCols = await supabase
     .from("trainer_recommendations")
-    .select("id, trainer_id, name, description, is_custom, sessions_per_week, weeks, price, discount, note, status, created_at, trainer_profiles(users(name)), trainer_evaluations(dogs(name))")
+    .select(FULL)
     .eq("owner_id", user.id)
     .order("created_at", { ascending: false });
-  return data ?? [];
+  const rows = (withCols.error
+    ? (
+        await supabase
+          .from("trainer_recommendations")
+          .select(
+            "id, trainer_id, name, description, is_custom, sessions_per_week, weeks, price, discount, note, status, created_at, trainer_profiles(users(name)), trainer_evaluations(dog_id)"
+          )
+          .eq("owner_id", user.id)
+          .order("created_at", { ascending: false })
+      ).data
+    : withCols.data) as Record<string, unknown>[] | null;
+  if (!rows || rows.length === 0) return [];
+
+  // Names for every dog referenced across these recommendations' evaluations.
+  const allDogIds = [...new Set(rows.flatMap((r) => recEvalDogIds(r)))];
+  const { data: dogRows } = allDogIds.length
+    ? await supabase.from("dogs").select("id, name").in("id", allDogIds)
+    : { data: [] as { id: string; name: string }[] };
+  const dogNameById = new Map((dogRows ?? []).map((d) => [d.id, d.name]));
+
+  return rows.map((r): RecCard => {
+    const ids = recEvalDogIds(r);
+    const tp = (Array.isArray(r.trainer_profiles) ? r.trainer_profiles[0] : r.trainer_profiles) as
+      | { multi_dog_discount?: number | null }
+      | null;
+    return {
+      id: r.id as string,
+      trainer_id: r.trainer_id as string,
+      name: (r.name as string | null) ?? null,
+      description: (r.description as string | null) ?? null,
+      is_custom: Boolean(r.is_custom),
+      sessions_per_week: Number(r.sessions_per_week),
+      weeks: Number(r.weeks),
+      price: Number(r.price),
+      discount: Number(r.discount),
+      note: (r.note as string | null) ?? null,
+      status: r.status as string,
+      created_at: r.created_at as string,
+      trainerName: relName(r.trainer_profiles),
+      dogNames: ids.map((id) => dogNameById.get(id)).filter(Boolean) as string[],
+      dogCount: Math.max(ids.length, 1),
+      multiDogDiscount: tp?.multi_dog_discount != null ? Number(tp.multi_dog_discount) : 0,
+    };
+  });
 }
 
 export async function listMyBookings() {

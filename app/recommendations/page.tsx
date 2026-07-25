@@ -1,14 +1,10 @@
 import { OwnerNav } from "@/components/owner-nav";
-import { listMyRecommendations, relName } from "@/lib/owner-data";
+import { SubmitButton } from "@/components/submit-button";
+import { listMyRecommendations } from "@/lib/owner-data";
 import { acceptRecommendation } from "@/app/actions";
-import { cedis, programTotal, totalSessions } from "@/lib/pricing";
+import { cedis, programTotal, totalSessions, multiDogTotal } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
-
-function one(x: unknown): Record<string, unknown> | null {
-  if (!x) return null;
-  return (Array.isArray(x) ? x[0] ?? null : x) as Record<string, unknown> | null;
-}
 
 export default async function RecommendationsPage() {
   const recs = await listMyRecommendations();
@@ -29,13 +25,16 @@ export default async function RecommendationsPage() {
           <div className="mt-6 grid gap-4">
             {recs.map((r) => {
               const sessions = totalSessions(r.sessions_per_week, r.weeks);
-              const gross = Math.round(Number(r.price) * sessions * 100) / 100;
-              const total = programTotal(Number(r.price), r.sessions_per_week, r.weeks, Number(r.discount));
-              const discAmt = Math.round((gross - total) * 100) / 100;
+              const perDogGross = Math.round(r.price * sessions * 100) / 100; // one dog, before program discount
+              const perDog = programTotal(r.price, r.sessions_per_week, r.weeks, r.discount); // one dog, after program discount
+              const programDisc = Math.round((perDogGross - perDog) * 100) / 100;
+              const total = multiDogTotal(perDog, r.dogCount, r.multiDogDiscount); // what will actually be charged
+              const multiDog = r.dogCount > 1;
+              const multiDiscApplies = multiDog && r.multiDogDiscount > 0;
+              const multiDiscAmt = multiDiscApplies ? Math.round((perDog * r.dogCount - total) * 100) / 100 : 0;
               const done = r.status !== "sent";
-              const details = (r.description as string | null) || (r.note as string | null);
-              const ev = one(r.trainer_evaluations);
-              const dogName = (one(ev?.dogs)?.name as string | undefined) ?? null;
+              const details = r.description || r.note;
+              const dogsLabel = r.dogNames.length ? r.dogNames.join(", ") : null;
 
               return (
                 <div key={r.id} className="rounded-2xl bg-white border border-hairline p-5">
@@ -46,15 +45,15 @@ export default async function RecommendationsPage() {
                     <span className="text-xs text-muted">
                       from{" "}
                       <a href={`/trainers/${r.trainer_id}`} className="text-gold font-semibold hover:underline">
-                        {relName(r.trainer_profiles)}
+                        {r.trainerName}
                       </a>
                     </span>
                   </div>
 
                   <h2 className="mt-2 text-xl text-espresso">{r.name ?? "Recommended program"}</h2>
                   <div className="mt-1 text-xs text-muted">
-                    {dogName && <span>For {dogName} · </span>}
-                    {r.sessions_per_week}×/week · {r.weeks} weeks · {sessions} sessions
+                    {dogsLabel && <span>For {dogsLabel} · </span>}
+                    {r.sessions_per_week}×/week · {r.weeks} weeks · {sessions} sessions{multiDog ? ` · ${r.dogCount} dogs` : ""}
                   </div>
 
                   {details && (
@@ -65,8 +64,10 @@ export default async function RecommendationsPage() {
                   )}
 
                   <div className="mt-3 rounded-lg bg-cream/60 border border-hairline p-3 text-sm">
-                    <Row label={`${cedis(Number(r.price))}/session × ${sessions} sessions`} value={cedis(gross)} />
-                    {Number(r.discount) > 0 && <Row label={`Discount (${r.discount}%)`} value={`- ${cedis(discAmt)}`} gold />}
+                    <Row label={`${cedis(r.price)}/session × ${sessions} sessions${multiDog ? " (per dog)" : ""}`} value={cedis(perDogGross)} />
+                    {r.discount > 0 && <Row label={`Discount (${r.discount}%)`} value={`- ${cedis(programDisc)}`} gold />}
+                    {multiDog && <Row label={`Per dog × ${r.dogCount} dogs`} value={cedis(Math.round(perDog * r.dogCount * 100) / 100)} />}
+                    {multiDiscApplies && <Row label={`Multi-dog discount (${r.multiDogDiscount}%)`} value={`- ${cedis(multiDiscAmt)}`} gold />}
                     <div className="mt-1 pt-1 border-t border-hairline flex items-center justify-between">
                       <span className="font-semibold text-espresso">Total</span>
                       <span className="font-semibold text-espresso">{cedis(total)}</span>
@@ -82,9 +83,12 @@ export default async function RecommendationsPage() {
                     ) : (
                       <form action={acceptRecommendation}>
                         <input type="hidden" name="recommendation_id" value={r.id} />
-                        <button className="rounded-full bg-walnut text-ivory text-sm font-semibold px-5 py-2 hover:bg-mahogany transition-colors">
+                        <SubmitButton
+                          className="rounded-full bg-walnut text-ivory text-sm font-semibold px-5 py-2 hover:bg-mahogany transition-colors disabled:opacity-60"
+                          pendingText="Booking…"
+                        >
                           Accept &amp; book
-                        </button>
+                        </SubmitButton>
                       </form>
                     )}
                   </div>

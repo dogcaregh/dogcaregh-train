@@ -1,4 +1,5 @@
 import { OwnerNav } from "@/components/owner-nav";
+import { SubmitButton } from "@/components/submit-button";
 import { listMyBookings, listMyEvaluations, relName } from "@/lib/owner-data";
 import { submitReview } from "@/app/actions";
 import { cedis } from "@/lib/pricing";
@@ -178,9 +179,9 @@ export default async function BookingsPage({
                           </div>
                           <input name="text" placeholder="How did it go? (optional)"
                             className="mt-2 w-full rounded-lg border border-hairline bg-ivory px-3 py-2 text-sm text-espresso outline-none focus:border-gold" />
-                          <button className="mt-2 rounded-full bg-walnut text-ivory text-xs font-semibold px-4 py-1.5 hover:bg-mahogany transition-colors">
+                          <SubmitButton pendingText="Submitting…" className="mt-2 rounded-full bg-walnut text-ivory text-xs font-semibold px-4 py-1.5 hover:bg-mahogany transition-colors disabled:opacity-60">
                             Submit review
-                          </button>
+                          </SubmitButton>
                         </form>
                       )
                     )}

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { bookEvaluation, rebookProgram } from "@/app/actions";
+import { SubmitButton } from "@/components/submit-button";
 import { cedis, programTotal, totalSessions, multiDogTotal } from "@/lib/pricing";
 
 type Program = {
@@ -106,17 +107,17 @@ export function BookingActions({
               <input type="hidden" name="trainer_id" value={trainerId} />
               <input type="hidden" name="program_id" value={p.id} />
               {dogInputs}
-              <button disabled={none} className="w-full text-left rounded-lg border border-hairline bg-white px-4 py-2.5 text-sm text-walnut hover:border-gold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+              <SubmitButton disabled={none} pendingText="Starting…" className="w-full text-left rounded-lg border border-hairline bg-white px-4 py-2.5 text-sm text-walnut hover:border-gold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                 Evaluate for <strong className="text-espresso">{p.name}</strong>
-              </button>
+              </SubmitButton>
             </form>
           ))}
           <form action={bookEvaluation}>
             <input type="hidden" name="trainer_id" value={trainerId} />
             {dogInputs}
-            <button disabled={none} className="w-full text-left rounded-lg border border-dashed border-hairline bg-white px-4 py-2.5 text-sm text-muted hover:border-gold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+            <SubmitButton disabled={none} pendingText="Starting…" className="w-full text-left rounded-lg border border-dashed border-hairline bg-white px-4 py-2.5 text-sm text-muted hover:border-gold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
               Not sure yet — general evaluation
-            </button>
+            </SubmitButton>
           </form>
         </div>
       </section>
@@ -158,13 +159,14 @@ export function BookingActions({
                 <form action={rebookProgram} className="mt-3">
                   <input type="hidden" name="program_id" value={p.id} />
                   {dogInputs}
-                  <button
+                  <SubmitButton
                     disabled={!canRebook || none}
+                    pendingText="Booking…"
                     title={canRebook ? undefined : "Complete a program with this trainer to rebook directly"}
                     className="rounded-full bg-walnut text-ivory text-xs font-semibold px-4 py-2 hover:bg-mahogany transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-walnut"
                   >
                     Rebook directly
-                  </button>
+                  </SubmitButton>
                 </form>
               </div>
             );
