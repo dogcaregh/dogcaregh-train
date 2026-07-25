@@ -7,10 +7,20 @@ import { saveTrainerProfile } from "@/app/actions";
 
 export const dynamic = "force-dynamic";
 
+const METHOD_OPTIONS = [
+  "Positive reinforcement",
+  "Balanced training",
+  "Clicker / marker training",
+  "Force-free (LIMA)",
+  "E-collar / remote training",
+  "Relationship-based",
+];
+
 export default async function TrainerProfilePage() {
   const [p, user] = await Promise.all([getMyTrainerProfile(), getServerUser()]);
   // Prefill contact from the profile, else from what was captured at signup.
   const meta = (user?.user_metadata ?? {}) as { phone?: string; region?: string; location?: string };
+  const selectedMethods = new Set((p?.methods ?? "").split(",").map((m) => m.trim()).filter(Boolean));
 
   return (
     <>
@@ -33,7 +43,17 @@ export default async function TrainerProfilePage() {
             defaultRegion={p?.region ?? meta.region ?? ""}
             defaultNeighbourhood={p?.location ?? meta.location ?? ""}
           />
-          <Field name="methods" label="Methods" placeholder="Positive reinforcement" defaultValue={p?.methods ?? ""} />
+          <fieldset>
+            <legend className="text-sm font-semibold text-walnut">Training methods</legend>
+            <div className="mt-1 grid grid-cols-2 gap-1.5">
+              {METHOD_OPTIONS.map((m) => (
+                <label key={m} className="flex items-center gap-2 rounded-lg border border-hairline bg-ivory px-3 py-2 text-sm text-espresso cursor-pointer hover:border-gold">
+                  <input type="checkbox" name="methods" value={m} defaultChecked={selectedMethods.has(m)} className="accent-gold" />
+                  {m}
+                </label>
+              ))}
+            </div>
+          </fieldset>
           <Field name="credentials" label="Credentials" defaultValue={p?.credentials ?? ""} />
           <div className="grid grid-cols-2 gap-4">
             <Field name="years_experience" label="Years experience" type="number" defaultValue={p?.years_experience?.toString() ?? ""} />

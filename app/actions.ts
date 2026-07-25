@@ -440,7 +440,8 @@ export async function saveTrainerProfile(formData: FormData) {
     specialties: splitList(formData.get("specialties")),
     breeds: splitList(formData.get("breeds")),
     neighbourhoods: splitList(formData.get("neighbourhoods")),
-    methods: String(formData.get("methods") ?? "").trim() || null,
+    // Multi-select checkboxes → comma-joined in the existing methods text column.
+    methods: formData.getAll("methods").map((m) => String(m).trim()).filter(Boolean).join(", ") || null,
     credentials: String(formData.get("credentials") ?? "").trim() || null,
     years_experience: formData.get("years_experience") ? Number(formData.get("years_experience")) : null,
     eval_fee: evalFee,
