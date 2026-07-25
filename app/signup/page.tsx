@@ -3,12 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
+import { LocationPicker } from "@/components/location-picker";
 
 export default function TrainerSignup() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [location, setLocation] = useState("");
+  const [region, setRegion] = useState("");
+  const [neighbourhood, setNeighbourhood] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -21,8 +23,8 @@ export default function TrainerSignup() {
     e.preventDefault();
     setError("");
 
-    if (!name.trim() || !phone.trim() || !location.trim()) {
-      setError("Please fill in your name, phone number, and location.");
+    if (!name.trim() || !phone.trim() || !region || !neighbourhood) {
+      setError("Please fill in your name, phone number, and location (region + neighbourhood).");
       setStatus("error");
       return;
     }
@@ -45,7 +47,7 @@ export default function TrainerSignup() {
       options: {
         // role is stamped in metadata now; the users.is_trainer flag is set
         // when the trainer profile is created (Phase 3, sub-step 3).
-        data: { name, role: "trainer", phone: phone.trim(), location: location.trim() },
+        data: { name, role: "trainer", phone: phone.trim(), region, location: neighbourhood },
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
@@ -99,12 +101,11 @@ export default function TrainerSignup() {
               type="tel"
               autoComplete="tel"
             />
-            <Field
-              label="Location"
-              value={location}
-              onChange={setLocation}
-              type="text"
-              autoComplete="address-level2"
+            <LocationPicker
+              onChange={(r, h) => {
+                setRegion(r);
+                setNeighbourhood(h);
+              }}
             />
             <Field
               label="Password"

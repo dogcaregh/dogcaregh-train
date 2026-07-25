@@ -1,5 +1,6 @@
 import { TrainerNav } from "@/components/trainer-nav";
 import { TrainerPhotos } from "@/components/trainer-photos";
+import { LocationPicker } from "@/components/location-picker";
 import { getMyTrainerProfile } from "@/lib/trainer-data";
 import { getServerUser } from "@/lib/owner-data";
 import { saveTrainerProfile } from "@/app/actions";
@@ -9,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function TrainerProfilePage() {
   const [p, user] = await Promise.all([getMyTrainerProfile(), getServerUser()]);
   // Prefill contact from the profile, else from what was captured at signup.
-  const meta = (user?.user_metadata ?? {}) as { phone?: string; location?: string };
+  const meta = (user?.user_metadata ?? {}) as { phone?: string; region?: string; location?: string };
 
   return (
     <>
@@ -26,10 +27,12 @@ export default async function TrainerProfilePage() {
           <Field name="specialties" label="Specialties" placeholder="Obedience, Puppy training" defaultValue={(p?.specialties ?? []).join(", ")} />
           <Field name="breeds" label="Breeds you work with" placeholder="German Shepherd, All breeds" defaultValue={(p?.breeds ?? []).join(", ")} />
           <Field name="neighbourhoods" label="Neighbourhoods served" placeholder="East Legon, Cantonments" defaultValue={(p?.neighbourhoods ?? []).join(", ")} />
-          <div className="grid grid-cols-2 gap-4">
-            <Field name="phone" label="Phone number" type="tel" required defaultValue={p?.phone ?? meta.phone ?? ""} />
-            <Field name="location" label="Location" required defaultValue={p?.location ?? meta.location ?? ""} />
-          </div>
+          <Field name="phone" label="Phone number" type="tel" required defaultValue={p?.phone ?? meta.phone ?? ""} />
+          <LocationPicker
+            required
+            defaultRegion={p?.region ?? meta.region ?? ""}
+            defaultNeighbourhood={p?.location ?? meta.location ?? ""}
+          />
           <Field name="methods" label="Methods" placeholder="Positive reinforcement" defaultValue={p?.methods ?? ""} />
           <Field name="credentials" label="Credentials" defaultValue={p?.credentials ?? ""} />
           <div className="grid grid-cols-2 gap-4">

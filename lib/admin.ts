@@ -249,6 +249,7 @@ export type AdminTrainer = {
   name: string;
   email: string;
   phone: string | null;
+  region: string | null;
   location: string | null;
 };
 
@@ -258,7 +259,7 @@ export async function listAllTrainers(): Promise<AdminTrainer[]> {
   const SEL =
     "id, specialties, breeds, neighbourhoods, methods, credentials, years_experience, bio, avatar_url, gallery_photos, eval_fee, vetting_status, active, created_at, users(name, email)";
   // Prefer contact columns; fall back if the migration isn't applied yet.
-  const withContact = await supabase.from("trainer_profiles").select(SEL + ", phone, location").order("created_at", { ascending: false });
+  const withContact = await supabase.from("trainer_profiles").select(SEL + ", phone, region, location").order("created_at", { ascending: false });
   const data = withContact.error
     ? (await supabase.from("trainer_profiles").select(SEL).order("created_at", { ascending: false })).data
     : withContact.data;
@@ -285,6 +286,7 @@ export async function listAllTrainers(): Promise<AdminTrainer[]> {
       name: rec?.name ?? "Trainer",
       email: rec?.email ?? "",
       phone: (row.phone as string | null) ?? null,
+      region: (row.region as string | null) ?? null,
       location: (row.location as string | null) ?? null,
     };
   });

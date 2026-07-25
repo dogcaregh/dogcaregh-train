@@ -452,6 +452,7 @@ export async function saveTrainerProfile(formData: FormData) {
     ...base,
     multi_dog_discount: multiDogDiscount,
     phone: String(formData.get("phone") ?? "").trim() || null,
+    region: String(formData.get("region") ?? "").trim() || null,
     location: String(formData.get("location") ?? "").trim() || null,
   };
 

@@ -23,6 +23,7 @@ export type TrainerProfile = {
   gallery_photos: string[];
   multi_dog_discount: number;
   phone: string | null;
+  region: string | null;
   location: string | null;
 };
 
@@ -32,7 +33,7 @@ export const getMyTrainerProfile = cache(async (): Promise<TrainerProfile | null
   const BASE =
     "id, user_id, bio, specialties, breeds, neighbourhoods, methods, credentials, years_experience, eval_fee, vetting_status, active, rating_avg, review_count, avatar_url, gallery_photos";
   // Prefer the later-migration columns; fall back if they aren't applied yet.
-  const withExtra = await supabase.from("trainer_profiles").select(BASE + ", multi_dog_discount, phone, location").eq("user_id", user.id).maybeSingle();
+  const withExtra = await supabase.from("trainer_profiles").select(BASE + ", multi_dog_discount, phone, region, location").eq("user_id", user.id).maybeSingle();
   const data = withExtra.error
     ? (await supabase.from("trainer_profiles").select(BASE).eq("user_id", user.id).maybeSingle()).data
     : withExtra.data;
@@ -42,6 +43,7 @@ export const getMyTrainerProfile = cache(async (): Promise<TrainerProfile | null
     ...(data as TrainerProfile),
     multi_dog_discount: Number((d.multi_dog_discount as number) ?? 0),
     phone: (d.phone as string | null) ?? null,
+    region: (d.region as string | null) ?? null,
     location: (d.location as string | null) ?? null,
   };
 });

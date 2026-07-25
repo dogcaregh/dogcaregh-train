@@ -1,0 +1,241 @@
+// Ghana regions → neighbourhoods, with approximate GPS centroids (lat, lng).
+// Greater Accra is populated thoroughly (110+ neighbourhoods) since that's the
+// marketplace's home; other regions carry their principal towns so the region
+// dropdown is complete. Coordinates are approximate neighbourhood centroids —
+// good enough to drop a map pin, not for turn-by-turn navigation.
+
+export type Neighbourhood = { name: string; lat?: number; lng?: number };
+export type Region = { name: string; neighbourhoods: Neighbourhood[] };
+
+const GREATER_ACCRA: Neighbourhood[] = [
+  { name: "Accra Central (Makola)", lat: 5.548, lng: -0.204 },
+  { name: "Jamestown", lat: 5.531, lng: -0.213 },
+  { name: "Usshertown", lat: 5.535, lng: -0.208 },
+  { name: "Osu", lat: 5.556, lng: -0.182 },
+  { name: "Labone", lat: 5.560, lng: -0.174 },
+  { name: "Cantonments", lat: 5.567, lng: -0.171 },
+  { name: "Airport Residential Area", lat: 5.603, lng: -0.181 },
+  { name: "Ridge", lat: 5.564, lng: -0.196 },
+  { name: "North Ridge", lat: 5.570, lng: -0.196 },
+  { name: "West Ridge", lat: 5.556, lng: -0.210 },
+  { name: "Roman Ridge", lat: 5.594, lng: -0.196 },
+  { name: "Asylum Down", lat: 5.567, lng: -0.205 },
+  { name: "Adabraka", lat: 5.560, lng: -0.211 },
+  { name: "Tudu", lat: 5.550, lng: -0.203 },
+  { name: "Kokomlemle", lat: 5.573, lng: -0.212 },
+  { name: "Accra New Town", lat: 5.585, lng: -0.212 },
+  { name: "Pig Farm", lat: 5.590, lng: -0.208 },
+  { name: "Kotobabi", lat: 5.594, lng: -0.216 },
+  { name: "Alajo", lat: 5.596, lng: -0.222 },
+  { name: "Nima", lat: 5.583, lng: -0.197 },
+  { name: "Mamobi", lat: 5.590, lng: -0.200 },
+  { name: "Kanda", lat: 5.575, lng: -0.198 },
+  { name: "Kaneshie", lat: 5.564, lng: -0.234 },
+  { name: "North Kaneshie", lat: 5.575, lng: -0.238 },
+  { name: "Abossey Okai", lat: 5.550, lng: -0.228 },
+  { name: "Sabon Zongo", lat: 5.548, lng: -0.235 },
+  { name: "Bubuashie", lat: 5.575, lng: -0.240 },
+  { name: "Abeka", lat: 5.593, lng: -0.235 },
+  { name: "Abeka Lapaz", lat: 5.606, lng: -0.246 },
+  { name: "Lapaz", lat: 5.610, lng: -0.253 },
+  { name: "Achimota", lat: 5.618, lng: -0.223 },
+  { name: "Achimota Mile 7", lat: 5.635, lng: -0.235 },
+  { name: "Tesano", lat: 5.598, lng: -0.226 },
+  { name: "Dzorwulu", lat: 5.605, lng: -0.196 },
+  { name: "Abelemkpe", lat: 5.600, lng: -0.206 },
+  { name: "Legon", lat: 5.651, lng: -0.187 },
+  { name: "East Legon", lat: 5.638, lng: -0.163 },
+  { name: "East Legon Hills", lat: 5.680, lng: -0.130 },
+  { name: "West Legon", lat: 5.645, lng: -0.207 },
+  { name: "Okponglo", lat: 5.647, lng: -0.180 },
+  { name: "Shiashie", lat: 5.635, lng: -0.175 },
+  { name: "Bawaleshie", lat: 5.640, lng: -0.168 },
+  { name: "Adjiringanor", lat: 5.650, lng: -0.150 },
+  { name: "American House", lat: 5.640, lng: -0.160 },
+  { name: "Trasacco", lat: 5.660, lng: -0.145 },
+  { name: "Ogbojo", lat: 5.680, lng: -0.160 },
+  { name: "Ashaley Botwe", lat: 5.690, lng: -0.150 },
+  { name: "Madina", lat: 5.683, lng: -0.166 },
+  { name: "Madina Estates", lat: 5.690, lng: -0.170 },
+  { name: "Adenta", lat: 5.710, lng: -0.160 },
+  { name: "Adenta Housing Down", lat: 5.705, lng: -0.165 },
+  { name: "Frafraha", lat: 5.720, lng: -0.145 },
+  { name: "Oyarifa", lat: 5.760, lng: -0.180 },
+  { name: "Abokobi", lat: 5.735, lng: -0.190 },
+  { name: "Pantang", lat: 5.740, lng: -0.175 },
+  { name: "Haatso", lat: 5.660, lng: -0.205 },
+  { name: "Atomic (Kwabenya)", lat: 5.680, lng: -0.213 },
+  { name: "Kwabenya", lat: 5.700, lng: -0.220 },
+  { name: "Agbogba", lat: 5.675, lng: -0.200 },
+  { name: "Ashongman", lat: 5.675, lng: -0.230 },
+  { name: "Ashongman Estates", lat: 5.690, lng: -0.235 },
+  { name: "Dome", lat: 5.650, lng: -0.235 },
+  { name: "Kwashieman", lat: 5.600, lng: -0.270 },
+  { name: "Odorkor", lat: 5.580, lng: -0.258 },
+  { name: "Darkuman", lat: 5.582, lng: -0.248 },
+  { name: "Awoshie", lat: 5.610, lng: -0.270 },
+  { name: "Anyaa", lat: 5.620, lng: -0.283 },
+  { name: "Ablekuma", lat: 5.630, lng: -0.290 },
+  { name: "Sowutuom", lat: 5.630, lng: -0.258 },
+  { name: "Santa Maria", lat: 5.605, lng: -0.285 },
+  { name: "Gbawe", lat: 5.585, lng: -0.300 },
+  { name: "Mallam", lat: 5.560, lng: -0.300 },
+  { name: "McCarthy Hill", lat: 5.570, lng: -0.290 },
+  { name: "Weija", lat: 5.560, lng: -0.330 },
+  { name: "Oduman", lat: 5.640, lng: -0.320 },
+  { name: "Pokuase", lat: 5.700, lng: -0.278 },
+  { name: "Amasaman", lat: 5.705, lng: -0.300 },
+  { name: "Ofankor", lat: 5.665, lng: -0.263 },
+  { name: "Dansoman", lat: 5.535, lng: -0.258 },
+  { name: "Sakaman", lat: 5.555, lng: -0.250 },
+  { name: "Russia (Dansoman)", lat: 5.540, lng: -0.262 },
+  { name: "Shukura", lat: 5.560, lng: -0.255 },
+  { name: "Korle Bu", lat: 5.538, lng: -0.226 },
+  { name: "Korle Gonno", lat: 5.528, lng: -0.230 },
+  { name: "Chorkor", lat: 5.522, lng: -0.240 },
+  { name: "Mamprobi", lat: 5.535, lng: -0.240 },
+  { name: "Gbegbeyise", lat: 5.525, lng: -0.250 },
+  { name: "Bortianor", lat: 5.510, lng: -0.330 },
+  { name: "Kokrobite", lat: 5.500, lng: -0.360 },
+  { name: "Tuba", lat: 5.505, lng: -0.345 },
+  { name: "La (Labadi)", lat: 5.560, lng: -0.155 },
+  { name: "Teshie", lat: 5.585, lng: -0.105 },
+  { name: "Nungua", lat: 5.600, lng: -0.078 },
+  { name: "Sakumono", lat: 5.615, lng: -0.055 },
+  { name: "Lashibi", lat: 5.660, lng: -0.045 },
+  { name: "Spintex", lat: 5.635, lng: -0.100 },
+  { name: "Baatsona", lat: 5.640, lng: -0.090 },
+  { name: "Coastal Estates", lat: 5.650, lng: -0.070 },
+  { name: "Community 18 (Spintex)", lat: 5.650, lng: -0.085 },
+  { name: "Klagon", lat: 5.665, lng: -0.060 },
+  { name: "Tema Community 1", lat: 5.667, lng: -0.017 },
+  { name: "Tema Community 2", lat: 5.660, lng: -0.010 },
+  { name: "Tema Community 4", lat: 5.680, lng: -0.010 },
+  { name: "Tema Community 5", lat: 5.685, lng: -0.005 },
+  { name: "Tema Community 6", lat: 5.675, lng: 0.000 },
+  { name: "Tema Community 7", lat: 5.690, lng: -0.010 },
+  { name: "Tema Community 9", lat: 5.660, lng: -0.020 },
+  { name: "Tema Community 11", lat: 5.670, lng: -0.030 },
+  { name: "Tema Community 25", lat: 5.700, lng: -0.030 },
+  { name: "Tema New Town", lat: 5.630, lng: -0.010 },
+  { name: "Ashaiman", lat: 5.690, lng: -0.033 },
+  { name: "Michel Camp", lat: 5.700, lng: -0.020 },
+  { name: "Zenu", lat: 5.680, lng: -0.030 },
+  { name: "Adjei Kojo", lat: 5.680, lng: -0.050 },
+  { name: "Katamanso", lat: 5.720, lng: -0.030 },
+  { name: "Kpone", lat: 5.700, lng: 0.070 },
+  { name: "Prampram", lat: 5.712, lng: 0.103 },
+  { name: "Afienya", lat: 5.740, lng: 0.030 },
+  { name: "Dawhenya", lat: 5.730, lng: 0.080 },
+  { name: "Amrahia", lat: 5.720, lng: -0.130 },
+  { name: "Oyibi", lat: 5.760, lng: -0.100 },
+  { name: "Dodowa", lat: 5.885, lng: -0.098 },
+  { name: "Ningo", lat: 5.760, lng: 0.160 },
+  { name: "Ada Foah", lat: 5.783, lng: 0.630 },
+  { name: "Other (Greater Accra)" },
+];
+
+const town = (name: string, lat: number, lng: number): Neighbourhood => ({ name, lat, lng });
+
+export const REGIONS: Region[] = [
+  { name: "Greater Accra", neighbourhoods: GREATER_ACCRA },
+  {
+    name: "Ashanti",
+    neighbourhoods: [
+      town("Kumasi (Adum)", 6.688, -1.624), town("Asokwa", 6.667, -1.6), town("Bantama", 6.7, -1.64),
+      town("Suame", 6.71, -1.62), town("Tafo", 6.72, -1.6), town("Ejisu", 6.72, -1.47),
+      town("Obuasi", 6.204, -1.666), town("Konongo", 6.617, -1.213), town("Mampong", 7.063, -1.4),
+      { name: "Other (Ashanti)" },
+    ],
+  },
+  {
+    name: "Central",
+    neighbourhoods: [
+      town("Cape Coast", 5.106, -1.246), town("Kasoa", 5.534, -0.416), town("Winneba", 5.351, -0.623),
+      town("Elmina", 5.083, -1.35), town("Mankessim", 5.27, -1.01), town("Agona Swedru", 5.533, -0.7),
+      town("Saltpond", 5.2, -1.07), { name: "Other (Central)" },
+    ],
+  },
+  {
+    name: "Eastern",
+    neighbourhoods: [
+      town("Koforidua", 6.094, -0.259), town("Nsawam", 5.808, -0.351), town("Suhum", 6.041, -0.454),
+      town("Akosombo", 6.27, 0.05), town("Nkawkaw", 6.55, -0.767), town("Aburi", 5.847, -0.174),
+      town("Akropong", 5.97, -0.083), { name: "Other (Eastern)" },
+    ],
+  },
+  {
+    name: "Western",
+    neighbourhoods: [
+      town("Sekondi-Takoradi", 4.934, -1.714), town("Takoradi", 4.9, -1.755), town("Tarkwa", 5.301, -1.995),
+      town("Axim", 4.868, -2.242), town("Prestea", 5.433, -2.143), { name: "Other (Western)" },
+    ],
+  },
+  {
+    name: "Western North",
+    neighbourhoods: [town("Sefwi Wiawso", 6.213, -2.485), town("Bibiani", 6.463, -2.317), { name: "Other (Western North)" }],
+  },
+  {
+    name: "Volta",
+    neighbourhoods: [
+      town("Ho", 6.611, 0.47), town("Keta", 5.917, 0.988), town("Hohoe", 7.15, 0.473),
+      town("Kpando", 6.998, 0.293), town("Aflao", 6.117, 1.192), town("Sogakope", 6.003, 0.588),
+      { name: "Other (Volta)" },
+    ],
+  },
+  {
+    name: "Oti",
+    neighbourhoods: [town("Dambai", 8.07, 0.18), town("Jasikan", 7.407, 0.47), town("Kadjebi", 7.48, 0.48), { name: "Other (Oti)" }],
+  },
+  {
+    name: "Northern",
+    neighbourhoods: [town("Tamale", 9.408, -0.853), town("Yendi", 9.443, -0.007), town("Savelugu", 9.624, -0.826), { name: "Other (Northern)" }],
+  },
+  {
+    name: "Savannah",
+    neighbourhoods: [town("Damongo", 9.083, -1.82), town("Bole", 9.03, -2.484), { name: "Other (Savannah)" }],
+  },
+  {
+    name: "North East",
+    neighbourhoods: [town("Nalerigu", 10.53, -0.37), town("Walewale", 10.02, -0.8), { name: "Other (North East)" }],
+  },
+  {
+    name: "Upper East",
+    neighbourhoods: [town("Bolgatanga", 10.786, -0.851), town("Bawku", 11.061, -0.242), town("Navrongo", 10.895, -1.092), { name: "Other (Upper East)" }],
+  },
+  {
+    name: "Upper West",
+    neighbourhoods: [town("Wa", 10.06, -2.501), town("Lawra", 10.65, -2.9), { name: "Other (Upper West)" }],
+  },
+  {
+    name: "Bono",
+    neighbourhoods: [town("Sunyani", 7.339, -2.326), town("Berekum", 7.454, -2.586), { name: "Other (Bono)" }],
+  },
+  {
+    name: "Bono East",
+    neighbourhoods: [town("Techiman", 7.583, -1.937), town("Kintampo", 8.056, -1.73), { name: "Other (Bono East)" }],
+  },
+  {
+    name: "Ahafo",
+    neighbourhoods: [town("Goaso", 6.803, -2.516), town("Bechem", 7.093, -2.028), { name: "Other (Ahafo)" }],
+  },
+];
+
+export const REGION_NAMES = REGIONS.map((r) => r.name);
+
+/** Neighbourhoods for a region (empty if the region is unknown). */
+export function neighbourhoodsFor(region: string): Neighbourhood[] {
+  return REGIONS.find((r) => r.name === region)?.neighbourhoods ?? [];
+}
+
+/** Approximate GPS for a region + neighbourhood, or null if unknown. */
+export function gpsFor(region: string | null | undefined, neighbourhood: string | null | undefined): { lat: number; lng: number } | null {
+  if (!region || !neighbourhood) return null;
+  const n = neighbourhoodsFor(region).find((x) => x.name === neighbourhood);
+  return n && typeof n.lat === "number" && typeof n.lng === "number" ? { lat: n.lat, lng: n.lng } : null;
+}
+
+/** Google Maps link for a coordinate. */
+export function mapsUrl(lat: number, lng: number): string {
+  return `https://www.google.com/maps?q=${lat},${lng}`;
+}

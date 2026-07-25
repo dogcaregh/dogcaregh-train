@@ -4,6 +4,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { isAdmin, listAllTrainers, type AdminTrainer } from "@/lib/admin";
 import { setTrainerVetting, setTrainerActive } from "@/app/actions";
 import { cedis } from "@/lib/pricing";
+import { gpsFor, mapsUrl } from "@/lib/locations";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,7 @@ export default async function AdminTrainersPage() {
 function TrainerCard({ t }: { t: AdminTrainer }) {
   const name = t.name.replace(/^DEMO · /, "");
   const paused = t.vetting_status === "verified" && !t.active;
+  const gps = gpsFor(t.region, t.location);
 
   return (
     <div className="rounded-2xl bg-white border border-hairline p-5">
@@ -68,8 +70,16 @@ function TrainerCard({ t }: { t: AdminTrainer }) {
       </div>
 
       {(t.phone || t.location) && (
-        <p className="mt-2 text-xs text-walnut">
-          {[t.location && `📍 ${t.location}`, t.phone && `📞 ${t.phone}`].filter(Boolean).join("  ·  ")}
+        <p className="mt-2 text-xs text-walnut flex flex-wrap items-center gap-x-2 gap-y-1">
+          {t.location && (
+            <span>
+              📍 {t.location}{t.region ? `, ${t.region}` : ""}
+              {gps && (
+                <a href={mapsUrl(gps.lat, gps.lng)} target="_blank" rel="noopener noreferrer" className="ml-1 text-gold font-semibold hover:underline">map ↗</a>
+              )}
+            </span>
+          )}
+          {t.phone && <span>📞 {t.phone}</span>}
         </p>
       )}
       {t.bio && <p className="mt-2 text-sm text-walnut">{t.bio}</p>}
