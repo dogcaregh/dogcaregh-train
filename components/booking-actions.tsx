@@ -167,7 +167,7 @@ export function BookingActions({
                   <h3 className="text-lg text-espresso">{p.name}</h3>
                   <span className="text-espresso font-semibold">{cedis(total)}</span>
                 </div>
-                {p.description && <p className="mt-1 text-sm text-muted">{p.description}</p>}
+                {p.description && <p className="mt-1 text-sm text-muted whitespace-pre-line">{p.description}</p>}
                 <div className="mt-2 text-xs text-muted">
                   {p.sessions_per_week}×/week · {p.weeks} weeks · {totalSessions(p.sessions_per_week, p.weeks)} sessions
                   {p.discount > 0 && <span className="text-gold font-semibold"> · {p.discount}% off</span>}

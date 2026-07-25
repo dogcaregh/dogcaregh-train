@@ -28,7 +28,7 @@ export function ProgramForm({ program }: { program?: ProgramInput }) {
     <form action={saveProgram} className="mt-3 space-y-3">
       {program && <input type="hidden" name="program_id" value={program.id} />}
       <Text name="name" label="Name" defaultValue={program?.name ?? ""} placeholder="Foundation, Hyper, Booster…" required />
-      <Text name="description" label="Description (shown to owners)" defaultValue={program?.description ?? ""} />
+      <Area name="description" label="Description (shown to owners)" defaultValue={program?.description ?? ""} placeholder="What this program covers — e.g. loose-lead walking, recall, sit/stay, settling around distractions." />
       <div className="grid grid-cols-2 gap-3">
         <Num name="sessions_per_week" label="Sessions / week" value={spw} set={setSpw} min={1} max={7} />
         <Num name="weeks" label="Weeks" value={weeks} set={setWeeks} min={1} max={52} />
@@ -53,6 +53,16 @@ function Text({ name, label, defaultValue, placeholder, required }: { name: stri
     <label className="block">
       <span className="text-xs font-semibold text-walnut">{label}</span>
       <input name={name} type="text" defaultValue={defaultValue} placeholder={placeholder} required={required}
+        className="mt-1 w-full rounded-lg border border-hairline bg-white px-3 py-2 text-sm text-espresso outline-none focus:border-gold" />
+    </label>
+  );
+}
+
+function Area({ name, label, defaultValue, placeholder }: { name: string; label: string; defaultValue?: string; placeholder?: string }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-semibold text-walnut">{label}</span>
+      <textarea name={name} defaultValue={defaultValue} placeholder={placeholder} rows={3}
         className="mt-1 w-full rounded-lg border border-hairline bg-white px-3 py-2 text-sm text-espresso outline-none focus:border-gold" />
     </label>
   );

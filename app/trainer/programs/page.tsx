@@ -53,7 +53,7 @@ export default async function ProgramsPage({ searchParams }: { searchParams: { s
                     {p.sessions_per_week}×/week · {p.weeks} wks · {totalSessions(p.sessions_per_week, p.weeks)} sessions · {cedis(Number(p.price))}/session
                     {Number(p.discount) > 0 && ` · ${p.discount}% off`}
                   </p>
-                  {p.description && <p className="mt-1 text-sm text-walnut">{p.description}</p>}
+                  {p.description && <p className="mt-1 text-sm text-walnut whitespace-pre-line">{p.description}</p>}
 
                   <div className="mt-3 flex flex-wrap items-center gap-4 border-t border-hairline pt-3">
                     <form action={setProgramActive}>
