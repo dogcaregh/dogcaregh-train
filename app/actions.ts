@@ -965,6 +965,28 @@ async function createBookingWithSessions(
   a: BookingArgs
 ): Promise<{ id: string; gross: number } | null> {
   const { commission, payout } = splitAmount(a.gross);
+  // release_amount is the trainer's NET per session (after 15% commission);
+  // it accrues to the trainer's balance when the session is marked complete.
+  const perSession = perSessionRelease(payout, a.sessionsTotal);
+
+  // Preferred path: one SECURITY DEFINER function inserts the booking + all its
+  // sessions in a single transaction — a mid-way failure can't leave an orphan
+  // booking with no sessions.
+  const rpc = await supabase.rpc("create_booking_with_sessions", {
+    p_trainer_id: a.trainerId,
+    p_program_id: a.programId,
+    p_recommendation_id: a.recommendationId,
+    p_dog_ids: a.dogIds,
+    p_sessions_total: a.sessionsTotal,
+    p_gross: a.gross,
+    p_commission: commission,
+    p_payout: payout,
+    p_per_session: perSession,
+  });
+  if (!rpc.error && rpc.data) return { id: rpc.data as string, gross: a.gross };
+
+  // Fallback for environments where the function/migrations aren't applied yet.
+  // Non-atomic (the historical behaviour), kept only so nothing hard-fails there.
   const base = {
     owner_id: a.ownerId,
     trainer_id: a.trainerId,
@@ -977,7 +999,6 @@ async function createBookingWithSessions(
     commission_amount: commission,
     trainer_payout: payout,
   };
-  // Set the full dog set; fall back to primary-only if dog_ids isn't there yet.
   let booking: { id: string } | null;
   const withDogs = await supabase.from("trainer_bookings").insert({ ...base, dog_ids: a.dogIds }).select("id").single();
   if (!withDogs.error) {
@@ -986,12 +1007,8 @@ async function createBookingWithSessions(
     const noDogs = await supabase.from("trainer_bookings").insert(base).select("id").single();
     booking = noDogs.data ?? null;
   }
-
   if (!booking) return null;
 
-  // release_amount is the trainer's NET per session (after 15% commission);
-  // it accrues to the trainer's balance when the session is marked complete.
-  const perSession = perSessionRelease(payout, a.sessionsTotal);
   const rows = Array.from({ length: a.sessionsTotal }, (_, i) => ({
     booking_id: booking.id,
     seq: i + 1, // fixed display order; never renumbered on schedule/complete
@@ -999,7 +1016,7 @@ async function createBookingWithSessions(
     release_amount: perSession,
   }));
   const { error } = await supabase.from("trainer_sessions").insert(rows);
-  // Fall back without seq if the migration hasn't been applied yet.
+  // Fall back without seq if that column isn't there yet.
   if (error) {
     await supabase
       .from("trainer_sessions")
