@@ -78,7 +78,8 @@ export default async function ProgramsPage({ searchParams }: { searchParams: { s
 
         <div className="mt-8 rounded-2xl border border-gold/40 bg-[rgba(185,138,50,0.06)] p-5">
           <h2 className="text-lg text-espresso">Add a program</h2>
-          <ProgramForm />
+          {/* key on the program count → a successful add remounts a fresh, empty form */}
+          <ProgramForm key={programs.length} />
         </div>
       </main>
     </>
