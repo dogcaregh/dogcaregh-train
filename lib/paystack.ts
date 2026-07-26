@@ -4,6 +4,8 @@
 // single Paystack webhook stays untouched. References are prefixed `dogtrain_`
 // so trainer transactions are distinguishable in reconciliation.
 
+import { toPesewas } from "@/lib/pricing";
+
 const BASE = "https://api.paystack.co";
 
 export function paystackEnabled(): boolean {
@@ -63,7 +65,7 @@ export async function initTransaction(a: InitArgs): Promise<string> {
     },
     body: JSON.stringify({
       email: a.email,
-      amount: Math.round(a.amountGhs * 100), // pesewas
+      amount: toPesewas(a.amountGhs),
       currency: "GHS",
       reference: a.reference,
       callback_url: a.callbackUrl,

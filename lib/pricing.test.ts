@@ -6,6 +6,7 @@ import {
   perSessionRelease,
   multiDogTotal,
   cedis,
+  toPesewas,
   COMMISSION_RATE,
 } from "./pricing";
 
@@ -149,6 +150,22 @@ describe("end-to-end money path", () => {
     expect(commission).toBe(344.25); // 2295 × 0.15
     expect(payout).toBe(1950.75); // 2295 − 344.25
     expect(perSessionRelease(payout, sessions)).toBe(108.38); // 1950.75 / 18 ≈ 108.375 → 108.38
+  });
+});
+
+describe("toPesewas", () => {
+  it("converts cedis to integer pesewas", () => {
+    expect(toPesewas(100)).toBe(10000);
+    expect(toPesewas(0.1)).toBe(10);
+    expect(toPesewas(1234.56)).toBe(123456);
+    expect(toPesewas(0)).toBe(0);
+  });
+
+  it("rounds floating-point cents cleanly (init and verify must agree)", () => {
+    expect(toPesewas(99.99)).toBe(9999); // 99.99 * 100 = 9998.9999… → 9999
+    expect(toPesewas(19.99)).toBe(1999);
+    expect(toPesewas(2295)).toBe(229500);
+    expect(toPesewas(84.99)).toBe(8499);
   });
 });
 

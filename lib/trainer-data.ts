@@ -1,6 +1,9 @@
 import { cache } from "react";
 import { requireUser } from "@/lib/owner-data";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { computeTrainerEarnings, type Earnings } from "@/lib/earnings";
+
+export type { Earnings };
 
 type SC = ReturnType<typeof createServerSupabaseClient>;
 
@@ -172,14 +175,10 @@ export async function getMyLeads(): Promise<Lead[]> {
   });
 }
 
-export type Earnings = { earned: number; pending: number; available: number; upcoming: number };
-
 /** Trainer's money: released (net) session amounts + completed paid eval
- *  payouts, minus already-requested/paid cash-outs. `upcoming` is what they'll
- *  earn from already-paid programs as they deliver the remaining sessions. */
+ *  payouts, minus already-requested/paid cash-outs. Fetches the rows, then the
+ *  pure computeTrainerEarnings does the math (unit-tested in earnings.test.ts). */
 export async function trainerEarnings(supabase: SC, trainerId: string): Promise<Earnings> {
-  const round = (n: number) => Math.round(n * 100) / 100;
-
   const [{ data: bookings }, { data: evals }, { data: cashouts }] = await Promise.all([
     supabase
       .from("trainer_bookings")
@@ -197,26 +196,14 @@ export async function trainerEarnings(supabase: SC, trainerId: string): Promise<
       .eq("trainer_id", trainerId),
   ]);
 
-  let earned = 0;
-  let upcoming = 0;
-  for (const b of bookings ?? []) {
-    const payable = !["pending", "cancelled"].includes((b as { status: string }).status);
-    const sessions = (b.trainer_sessions ?? []) as { release_amount: number; released_at: string | null }[];
-    for (const s of sessions) {
-      if (s.released_at) earned += Number(s.release_amount);
-      else if (payable) upcoming += Number(s.release_amount); // paid program, session not yet delivered
-    }
-  }
-  for (const e of evals ?? []) earned += Number(e.trainer_payout);
-
-  let reserved = 0;
-  let pending = 0;
-  for (const c of cashouts ?? []) {
-    if (c.status === "pending" || c.status === "paid") reserved += Number(c.amount);
-    if (c.status === "pending") pending += Number(c.amount);
-  }
-
-  return { earned: round(earned), pending: round(pending), available: round(earned - reserved), upcoming: round(upcoming) };
+  return computeTrainerEarnings({
+    bookings: (bookings ?? []).map((b) => ({
+      status: (b as { status: string }).status,
+      sessions: (b.trainer_sessions ?? []) as { release_amount: number; released_at: string | null }[],
+    })),
+    evalPayouts: (evals ?? []).map((e) => Number(e.trainer_payout)),
+    cashouts: (cashouts ?? []).map((c) => ({ amount: Number(c.amount), status: c.status })),
+  });
 }
 
 export async function getMyEarnings(): Promise<Earnings> {

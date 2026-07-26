@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { notify } from "@/lib/notify";
+import { toPesewas } from "@/lib/pricing";
 
 async function notifyTrainerByProfile(
   admin: SupabaseClient,
@@ -38,7 +39,7 @@ export async function applyVerifiedPayment(
       .maybeSingle();
     if (!ev) return "notfound";
     if (ev.paid_at) return "already";
-    if (tx.amount !== Math.round(Number(ev.fee) * 100)) return "mismatch";
+    if (tx.amount !== toPesewas(Number(ev.fee))) return "mismatch";
 
     const { data: updated } = await admin
       .from("trainer_evaluations")
@@ -60,7 +61,7 @@ export async function applyVerifiedPayment(
       .maybeSingle();
     if (!bk) return "notfound";
     if (bk.status !== "pending") return "already";
-    if (tx.amount !== Math.round(Number(bk.gross_amount) * 100)) return "mismatch";
+    if (tx.amount !== toPesewas(Number(bk.gross_amount))) return "mismatch";
 
     const { data: updated } = await admin
       .from("trainer_bookings")

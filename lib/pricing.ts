@@ -36,6 +36,12 @@ export function cedis(n: number): string {
   return "₵" + n.toLocaleString("en-GH", { maximumFractionDigits: 2 });
 }
 
+/** Convert a cedi amount to integer pesewas — Paystack's unit, and what we
+ *  verify a transaction's amount against. Centralised so init + verify agree. */
+export function toPesewas(amountGhs: number): number {
+  return Math.round(amountGhs * 100);
+}
+
 // Platform commission (Phase 4 decision): 15% on everything.
 export const COMMISSION_RATE = 0.15;
 
