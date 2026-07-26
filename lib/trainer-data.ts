@@ -237,28 +237,48 @@ export async function getMyTrainerBookings() {
   if (!profile) return [];
   const { supabase } = await requireUser();
 
-  // Prefer the seq column; fall back if the migration hasn't been applied yet.
-  // (Two static selects — Supabase parses the select string at compile time.)
+  // Prefer the seq + dog_ids columns; fall back if a migration isn't applied yet.
   const withSeq = await supabase
     .from("trainer_bookings")
-    .select("id, owner_id, status, sessions_total, gross_amount, created_at, trainer_sessions(id, seq, status, scheduled_at, release_amount)")
+    .select("id, owner_id, status, sessions_total, gross_amount, created_at, dog_id, dog_ids, program_id, recommendation_id, trainer_sessions(id, seq, status, scheduled_at, release_amount)")
     .eq("trainer_id", profile.id)
     .order("created_at", { ascending: false });
   const noSeq = withSeq.error
     ? await supabase
         .from("trainer_bookings")
-        .select("id, owner_id, status, sessions_total, gross_amount, created_at, trainer_sessions(id, status, scheduled_at, release_amount)")
+        .select("id, owner_id, status, sessions_total, gross_amount, created_at, dog_id, program_id, recommendation_id, trainer_sessions(id, status, scheduled_at, release_amount)")
         .eq("trainer_id", profile.id)
         .order("created_at", { ascending: false })
     : null;
-  const bookings = (withSeq.error ? noSeq!.data : withSeq.data) as
-    | { id: string; owner_id: string; status: string; sessions_total: number; gross_amount: number; created_at: string; trainer_sessions: unknown }[]
-    | null;
+  type BRow = {
+    id: string; owner_id: string; status: string; sessions_total: number; gross_amount: number; created_at: string;
+    dog_id: string | null; dog_ids?: string[] | null; program_id: string | null; recommendation_id: string | null; trainer_sessions: unknown;
+  };
+  const bookings = (withSeq.error ? noSeq!.data : withSeq.data) as BRow[] | null;
   if (!bookings || bookings.length === 0) return [];
 
+  const dogsOf = (b: BRow) => (b.dog_ids && b.dog_ids.length ? b.dog_ids : b.dog_id ? [b.dog_id] : []);
   const ownerIds = [...new Set(bookings.map((b) => b.owner_id))];
-  const { data: owners } = await supabase.from("users").select("id, name").in("id", ownerIds);
-  const nameById = new Map((owners ?? []).map((o) => [o.id, o.name]));
+  const allDogIds = [...new Set(bookings.flatMap(dogsOf))];
+  const programIds = [...new Set(bookings.map((b) => b.program_id).filter(Boolean))] as string[];
+  const recIds = [...new Set(bookings.map((b) => b.recommendation_id).filter(Boolean))] as string[];
 
-  return bookings.map((b) => ({ ...b, ownerName: nameById.get(b.owner_id) ?? "An owner" }));
+  const [{ data: owners }, { data: dogRows }, { data: progs }, { data: recs }] = await Promise.all([
+    supabase.from("users").select("id, name").in("id", ownerIds),
+    allDogIds.length ? supabase.from("dogs").select("id, name").in("id", allDogIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    programIds.length ? supabase.from("trainer_programs").select("id, name").in("id", programIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    recIds.length ? supabase.from("trainer_recommendations").select("id, name").in("id", recIds) : Promise.resolve({ data: [] as { id: string; name: string | null }[] }),
+  ]);
+
+  const nameById = new Map((owners ?? []).map((o) => [o.id, o.name]));
+  const dogById = new Map((dogRows ?? []).map((d) => [d.id, d.name]));
+  const progById = new Map((progs ?? []).map((p) => [p.id, p.name]));
+  const recById = new Map((recs ?? []).map((r) => [r.id, r.name]));
+
+  return bookings.map((b) => ({
+    ...b,
+    ownerName: nameById.get(b.owner_id) ?? "An owner",
+    dogNames: dogsOf(b).map((id) => dogById.get(id)).filter(Boolean) as string[],
+    planName: (b.recommendation_id ? recById.get(b.recommendation_id) : null) ?? (b.program_id ? progById.get(b.program_id) : null) ?? null,
+  }));
 }
