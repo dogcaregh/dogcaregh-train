@@ -1,6 +1,7 @@
 import { TrainerNav } from "@/components/trainer-nav";
 import { TrainerPhotos } from "@/components/trainer-photos";
 import { LocationPicker } from "@/components/location-picker";
+import { AvatarPicker } from "@/components/avatar-picker";
 import { getMyTrainerProfile } from "@/lib/trainer-data";
 import { getServerUser } from "@/lib/owner-data";
 import { saveTrainerProfile } from "@/app/actions";
@@ -16,10 +17,11 @@ const METHOD_OPTIONS = [
   "Relationship-based",
 ];
 
-export default async function TrainerProfilePage() {
+export default async function TrainerProfilePage({ searchParams }: { searchParams: { err?: string } }) {
   const [p, user] = await Promise.all([getMyTrainerProfile(), getServerUser()]);
+  if (!user) return null; // getMyTrainerProfile already guards auth
   // Prefill contact from the profile, else from what was captured at signup.
-  const meta = (user?.user_metadata ?? {}) as { phone?: string; region?: string; location?: string };
+  const meta = (user.user_metadata ?? {}) as { phone?: string; region?: string; location?: string };
   const selectedMethods = new Set((p?.methods ?? "").split(",").map((m) => m.trim()).filter(Boolean));
 
   return (
@@ -32,7 +34,14 @@ export default async function TrainerProfilePage() {
           This is what owners see, and it drives your matches. Comma-separate lists.
         </p>
 
+        {searchParams.err === "avatar" && (
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            Please add a profile photo before saving.
+          </div>
+        )}
+
         <form action={saveTrainerProfile} className="mt-8 space-y-5">
+          <AvatarPicker userId={user.id} defaultUrl={p?.avatar_url ?? null} />
           <Area name="bio" label="Short bio" defaultValue={p?.bio ?? ""} />
           <Field name="specialties" label="Specialties" placeholder="Obedience, Puppy training" defaultValue={(p?.specialties ?? []).join(", ")} />
           <Field name="breeds" label="Breeds you work with" placeholder="German Shepherd, All breeds" defaultValue={(p?.breeds ?? []).join(", ")} />
@@ -73,10 +82,10 @@ export default async function TrainerProfilePage() {
 
         {p ? (
           <div className="mt-6">
-            <TrainerPhotos userId={p.user_id} avatarUrl={p.avatar_url} gallery={p.gallery_photos ?? []} />
+            <TrainerPhotos userId={p.user_id} gallery={p.gallery_photos ?? []} />
           </div>
         ) : (
-          <p className="mt-4 text-xs text-muted">You&apos;ll be able to add photos once your profile is created.</p>
+          <p className="mt-4 text-xs text-muted">You&apos;ll be able to add gallery photos once your profile is created.</p>
         )}
       </main>
     </>

@@ -8,11 +8,9 @@ const BUCKET = "trainer-photos";
 
 export function TrainerPhotos({
   userId,
-  avatarUrl,
   gallery,
 }: {
   userId: string;
-  avatarUrl: string | null;
   gallery: string[];
 }) {
   const router = useRouter();
@@ -33,19 +31,6 @@ export function TrainerPhotos({
     const { error: dbErr } = await supabase.from("trainer_profiles").update(patch).eq("user_id", userId);
     if (dbErr) throw dbErr;
     router.refresh();
-  }
-
-  async function onAvatar(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setBusy(true); setError("");
-    try {
-      await save({ avatar_url: await upload(file, "avatar") });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
-    } finally {
-      setBusy(false);
-    }
   }
 
   async function onGallery(e: React.ChangeEvent<HTMLInputElement>) {
@@ -76,23 +61,10 @@ export function TrainerPhotos({
 
   return (
     <div className="rounded-2xl bg-white border border-hairline p-5">
-      <h2 className="text-lg text-espresso">Photos</h2>
-      <p className="mt-1 text-xs text-muted">A clear profile photo and a few gallery shots build trust and win more bookings.</p>
+      <h2 className="text-lg text-espresso">Gallery photos</h2>
+      <p className="mt-1 text-xs text-muted">A few gallery shots build trust and win more bookings.</p>
 
-      <div className="mt-4 flex items-center gap-4">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={avatarUrl || "https://placehold.co/80x80/F3EADB/8A7862?text=Dog"}
-          alt="Profile"
-          className="h-20 w-20 rounded-full object-cover border border-hairline"
-        />
-        <label className="text-sm text-gold font-semibold hover:underline cursor-pointer">
-          {avatarUrl ? "Change profile photo" : "Add a profile photo"}
-          <input type="file" accept="image/*" className="hidden" onChange={onAvatar} disabled={busy} />
-        </label>
-      </div>
-
-      <div className="mt-5">
+      <div className="mt-4">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold text-walnut">Gallery</span>
           <label className="text-sm text-gold font-semibold hover:underline cursor-pointer">

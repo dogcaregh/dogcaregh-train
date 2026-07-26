@@ -435,6 +435,10 @@ export async function saveTrainerProfile(formData: FormData) {
   const evalFee = Math.max(300, Number(formData.get("eval_fee") || 300)); // DB floor is ₵300
   const multiDogDiscount = Math.min(100, Math.max(0, Number(formData.get("multi_dog_discount") || 0)));
 
+  // A profile photo is mandatory (uploaded client-side; the URL comes back here).
+  const avatarUrl = String(formData.get("avatar_url") ?? "").trim();
+  if (!avatarUrl) redirect("/trainer/profile?err=avatar");
+
   const base = {
     user_id: user.id,
     bio: String(formData.get("bio") ?? "").trim() || null,
@@ -446,6 +450,7 @@ export async function saveTrainerProfile(formData: FormData) {
     credentials: String(formData.get("credentials") ?? "").trim() || null,
     years_experience: formData.get("years_experience") ? Number(formData.get("years_experience")) : null,
     eval_fee: evalFee,
+    avatar_url: avatarUrl,
     active: true,
   };
   // Columns added by later migrations, layered on top; if any isn't applied yet
