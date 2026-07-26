@@ -172,17 +172,18 @@ export async function getMyLeads(): Promise<Lead[]> {
   });
 }
 
-export type Earnings = { earned: number; pending: number; available: number };
+export type Earnings = { earned: number; pending: number; available: number; upcoming: number };
 
 /** Trainer's money: released (net) session amounts + completed paid eval
- *  payouts, minus already-requested/paid cash-outs. */
+ *  payouts, minus already-requested/paid cash-outs. `upcoming` is what they'll
+ *  earn from already-paid programs as they deliver the remaining sessions. */
 export async function trainerEarnings(supabase: SC, trainerId: string): Promise<Earnings> {
   const round = (n: number) => Math.round(n * 100) / 100;
 
   const [{ data: bookings }, { data: evals }, { data: cashouts }] = await Promise.all([
     supabase
       .from("trainer_bookings")
-      .select("trainer_sessions(release_amount, released_at)")
+      .select("status, trainer_sessions(release_amount, released_at)")
       .eq("trainer_id", trainerId),
     supabase
       .from("trainer_evaluations")
@@ -197,9 +198,14 @@ export async function trainerEarnings(supabase: SC, trainerId: string): Promise<
   ]);
 
   let earned = 0;
+  let upcoming = 0;
   for (const b of bookings ?? []) {
+    const payable = !["pending", "cancelled"].includes((b as { status: string }).status);
     const sessions = (b.trainer_sessions ?? []) as { release_amount: number; released_at: string | null }[];
-    for (const s of sessions) if (s.released_at) earned += Number(s.release_amount);
+    for (const s of sessions) {
+      if (s.released_at) earned += Number(s.release_amount);
+      else if (payable) upcoming += Number(s.release_amount); // paid program, session not yet delivered
+    }
   }
   for (const e of evals ?? []) earned += Number(e.trainer_payout);
 
@@ -210,12 +216,12 @@ export async function trainerEarnings(supabase: SC, trainerId: string): Promise<
     if (c.status === "pending") pending += Number(c.amount);
   }
 
-  return { earned: round(earned), pending: round(pending), available: round(earned - reserved) };
+  return { earned: round(earned), pending: round(pending), available: round(earned - reserved), upcoming: round(upcoming) };
 }
 
 export async function getMyEarnings(): Promise<Earnings> {
   const profile = await getMyTrainerProfile();
-  if (!profile) return { earned: 0, pending: 0, available: 0 };
+  if (!profile) return { earned: 0, pending: 0, available: 0, upcoming: 0 };
   const { supabase } = await requireUser();
   return trainerEarnings(supabase, profile.id);
 }
@@ -226,7 +232,7 @@ export async function getMyCashouts() {
   const { supabase } = await requireUser();
   const { data } = await supabase
     .from("trainer_cashout_requests")
-    .select("id, amount, momo_network, momo_number, status, created_at")
+    .select("id, amount, momo_network, momo_number, status, note, created_at, paid_at")
     .eq("trainer_id", profile.id)
     .order("created_at", { ascending: false });
   return data ?? [];
