@@ -13,11 +13,15 @@ export function LocationPicker({
   defaultNeighbourhood = "",
   required,
   onChange,
+  regionName = "region",
+  neighbourhoodName = "location",
 }: {
   defaultRegion?: string;
   defaultNeighbourhood?: string;
   required?: boolean;
   onChange?: (region: string, neighbourhood: string) => void;
+  regionName?: string;
+  neighbourhoodName?: string;
 }) {
   const [region, setRegion] = useState(defaultRegion);
   const [hood, setHood] = useState(defaultNeighbourhood);
@@ -40,14 +44,14 @@ export function LocationPicker({
     <div className="grid grid-cols-2 gap-4">
       <label className="block">
         <span className="text-sm font-semibold text-walnut">Region</span>
-        <select name="region" required={required} value={region} onChange={(e) => set(e.target.value, "")} className={cls}>
+        <select name={regionName} required={required} value={region} onChange={(e) => set(e.target.value, "")} className={cls}>
           <option value="">Select region…</option>
           {REGIONS.map((r) => <option key={r.name} value={r.name}>{r.name}</option>)}
         </select>
       </label>
       <label className="block">
         <span className="text-sm font-semibold text-walnut">Neighbourhood</span>
-        <select name="location" required={required} value={hood} disabled={!region} onChange={(e) => set(region, e.target.value)} className={cls}>
+        <select name={neighbourhoodName} required={required} value={hood} disabled={!region} onChange={(e) => set(region, e.target.value)} className={cls}>
           <option value="">{region ? "Select neighbourhood…" : "Pick a region first"}</option>
           {hoods.map((h) => <option key={h.name} value={h.name}>{h.name}</option>)}
         </select>

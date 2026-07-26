@@ -1,6 +1,8 @@
 import { OwnerNav } from "@/components/owner-nav";
 import { Stepper } from "@/components/stepper";
+import { LocationPicker } from "@/components/location-picker";
 import { getMyOwnerProfile, getMyDogs } from "@/lib/owner-data";
+import { regionOfNeighbourhood } from "@/lib/locations";
 import { saveOwnerProfile } from "@/app/actions";
 
 export const dynamic = "force-dynamic";
@@ -10,10 +12,6 @@ const GOALS = [
   "Puppy training",
   "Behaviour / reactivity",
   "Protection / guard",
-];
-const AREAS = [
-  "East Legon", "Cantonments", "Airport Residential", "Osu", "Labone",
-  "Tema", "Sakumono", "Spintex", "Other",
 ];
 
 export default async function Onboarding() {
@@ -48,7 +46,17 @@ export default async function Onboarding() {
           </label>
 
           <Select name="goal" label="Main goal" options={GOALS} defaultValue={profile?.goal ?? ""} />
-          <Select name="neighbourhood" label="Neighbourhood" options={AREAS} defaultValue={profile?.neighbourhood ?? ""} />
+          <div>
+            <span className="text-sm font-semibold text-walnut">Where&apos;s your dog?</span>
+            <div className="mt-1">
+              <LocationPicker
+                neighbourhoodName="neighbourhood"
+                defaultRegion={regionOfNeighbourhood(profile?.neighbourhood)}
+                defaultNeighbourhood={profile?.neighbourhood ?? ""}
+              />
+            </div>
+            <p className="mt-1 text-xs text-muted">We rank trainers who serve your area first.</p>
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <Field name="budget" label="Budget per session (₵)" type="number" defaultValue={profile?.budget?.toString() ?? ""} />

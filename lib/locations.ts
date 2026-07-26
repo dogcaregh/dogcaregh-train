@@ -310,3 +310,9 @@ export function gpsFor(region: string | null | undefined, neighbourhood: string 
 export function mapsUrl(lat: number, lng: number): string {
   return `https://www.google.com/maps?q=${lat},${lng}`;
 }
+
+/** Which region contains a neighbourhood (for prefill when region isn't stored). */
+export function regionOfNeighbourhood(neighbourhood: string | null | undefined): string {
+  if (!neighbourhood) return "";
+  return REGIONS.find((r) => r.neighbourhoods.some((n) => n.name === neighbourhood))?.name ?? "";
+}

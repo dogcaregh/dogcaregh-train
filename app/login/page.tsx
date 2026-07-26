@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 
@@ -12,6 +12,14 @@ export default function LoginPage() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // Owner sign-up lives on the care app; return them here (to `next`, else onboarding).
+  const [ownerSignupUrl, setOwnerSignupUrl] = useState(`${CARE_APP}/register/owner`);
+
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get("next");
+    const next = raw && raw.startsWith("/") ? raw : "/onboarding";
+    setOwnerSignupUrl(`${CARE_APP}/register/owner?return_to=${encodeURIComponent(`${window.location.origin}${next}`)}`);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -82,10 +90,13 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="mt-6 flex items-center justify-between text-sm">
-          <Link href="/signup" className="text-gold font-semibold hover:underline">
-            New trainer? Sign up
-          </Link>
+        <div className="mt-6 space-y-2 text-sm">
+          <p className="text-muted">
+            New here? Sign up as{" "}
+            <a href={ownerSignupUrl} className="text-gold font-semibold hover:underline">an owner</a>
+            {" "}or{" "}
+            <Link href="/signup" className="text-gold font-semibold hover:underline">a trainer</Link>.
+          </p>
           <a href={`${CARE_APP}/forgot-password`} className="text-muted hover:underline">
             Forgot password?
           </a>
