@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 export type OwnerProfile = {
@@ -210,6 +211,55 @@ export async function listRankedTrainers(): Promise<Trainer[]> {
 export async function getTrainer(id: string): Promise<Trainer | null> {
   const all = await listRankedTrainers();
   return all.find((t) => t.id === id) ?? null;
+}
+
+export type FeaturedTrainer = {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+  specialties: string[];
+  neighbourhoods: string[];
+  rating_avg: number;
+  review_count: number;
+  fromPrice: number | null;
+};
+
+/**
+ * Top verified trainers for the public (signed-out) landing page. Uses the
+ * service role so it works without a session and without loosening RLS on the
+ * shared users table — reads only public listing fields. Returns [] if the
+ * service key isn't configured or there are no verified trainers.
+ */
+export async function getFeaturedTrainers(limit = 3): Promise<FeaturedTrainer[]> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return [];
+  const admin = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+  const { data } = await admin
+    .from("trainer_profiles")
+    .select("id, avatar_url, specialties, neighbourhoods, rating_avg, review_count, users(name), trainer_programs(price, active)")
+    .eq("active", true)
+    .eq("vetting_status", "verified")
+    .order("rating_avg", { ascending: false })
+    .order("review_count", { ascending: false })
+    .limit(limit);
+
+  return (data ?? []).map((row): FeaturedTrainer => {
+    const rel = row.users as unknown;
+    const name = (Array.isArray(rel) ? rel[0]?.name : (rel as { name?: string } | null)?.name) ?? "Trainer";
+    const progs = (row.trainer_programs ?? []) as { price: number; active: boolean }[];
+    const activePrices = progs.filter((p) => p.active).map((p) => Number(p.price));
+    return {
+      id: row.id as string,
+      name,
+      avatar_url: (row.avatar_url as string | null) ?? null,
+      specialties: (row.specialties as string[]) ?? [],
+      neighbourhoods: (row.neighbourhoods as string[]) ?? [],
+      rating_avg: Number(row.rating_avg ?? 0),
+      review_count: Number(row.review_count ?? 0),
+      fromPrice: activePrices.length ? Math.min(...activePrices) : null,
+    };
+  });
 }
 
 type ServerClient = ReturnType<typeof createServerSupabaseClient>;

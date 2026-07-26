@@ -2,7 +2,8 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { signOutAction } from "@/app/actions";
 import { isAdmin } from "@/lib/admin";
-import { getServerUser, getMyDogs, getMyOwnerProfile } from "@/lib/owner-data";
+import { getServerUser, getMyDogs, getMyOwnerProfile, getFeaturedTrainers } from "@/lib/owner-data";
+import { cedis } from "@/lib/pricing";
 
 // Always read the live session — never statically cache this page.
 export const dynamic = "force-dynamic";
@@ -20,6 +21,7 @@ export default async function Home() {
   const user = await getServerUser();
 
   if (!user) {
+    const featured = await getFeaturedTrainers(3);
     return (
       <main className="min-h-screen">
         {/* Hero */}
@@ -53,6 +55,45 @@ export default async function Home() {
             <Step n={3} title="Train & track" body="Pay securely, then follow every session's progress in your dashboard." />
           </div>
         </section>
+
+        {/* Featured trainers */}
+        {featured.length > 0 && (
+          <section className="mx-auto max-w-4xl px-6 py-10">
+            <h2 className="text-center font-display text-2xl text-espresso">Meet some of our trainers</h2>
+            <div className="mt-8 grid gap-4 sm:grid-cols-3">
+              {featured.map((t) => (
+                <a key={t.id} href={`/login?next=/trainers/${t.id}`} className="rounded-2xl border border-hairline bg-white p-5 hover:border-gold transition-colors">
+                  <div className="flex items-center gap-3">
+                    {t.avatar_url && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={t.avatar_url} alt={t.name} className="h-11 w-11 shrink-0 rounded-full object-cover border border-hairline" />
+                    )}
+                    <div>
+                      <p className="font-semibold text-espresso">{t.name}</p>
+                      {t.review_count > 0 && (
+                        <p className="text-xs text-walnut">★ {t.rating_avg.toFixed(1)} <span className="text-muted">({t.review_count})</span></p>
+                      )}
+                    </div>
+                  </div>
+                  {t.specialties.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {t.specialties.slice(0, 3).map((s) => (
+                        <span key={s} className="text-xs text-walnut bg-ivory border border-hairline rounded-full px-2 py-0.5">{s}</span>
+                      ))}
+                    </div>
+                  )}
+                  <p className="mt-3 text-xs text-muted">
+                    {t.neighbourhoods.slice(0, 2).join(", ")}
+                    {t.fromPrice != null ? ` · from ${cedis(t.fromPrice)}/session` : ""}
+                  </p>
+                </a>
+              ))}
+            </div>
+            <p className="mt-6 text-center">
+              <a href="/login?next=/trainers" className="text-sm text-gold font-semibold hover:underline">Browse all trainers →</a>
+            </p>
+          </section>
+        )}
 
         {/* Trainer CTA */}
         <section className="mx-auto max-w-3xl px-6 pb-20">
