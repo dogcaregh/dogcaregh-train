@@ -73,9 +73,10 @@ export type Lead = {
   created_at: string;
   ownerName: string;
   goal: string | null;
-  dogs: { name: string; breed: string | null }[];
+  dogs: { name: string; breed: string | null; size: string | null; age: number | null; temperament: string | null; vaccination_status: boolean }[];
   budget: number | null;
   neighbourhood: string | null;
+  schedulePref: string | null;
   hasRecommendation: boolean;
   contactPhone: string | null;
   scheduleConfirmed: boolean;
@@ -135,12 +136,12 @@ export async function getMyLeads(): Promise<Lead[]> {
     supabase.from("users").select("id, name").in("id", ownerIds),
     supabase
       .from("trainer_owner_profiles")
-      .select("user_id, goal, budget, neighbourhood")
+      .select("user_id, goal, budget, neighbourhood, schedule")
       .in("user_id", ownerIds),
     supabase.from("trainer_recommendations").select("evaluation_id, status").in("evaluation_id", evalIds),
     dogIds.length
-      ? supabase.from("dogs").select("id, name, breed").in("id", dogIds)
-      : Promise.resolve({ data: [] as { id: string; name: string; breed: string | null }[] }),
+      ? supabase.from("dogs").select("id, name, breed, size, age, temperament, vaccination_status").in("id", dogIds)
+      : Promise.resolve({ data: [] as { id: string; name: string; breed: string | null; size: string | null; age: number | null; temperament: string | null; vaccination_status: boolean }[] }),
   ]);
 
   const nameById = new Map((owners ?? []).map((o) => [o.id, o.name]));
@@ -154,7 +155,14 @@ export async function getMyLeads(): Promise<Lead[]> {
     const dogs = evalDogIds(e)
       .map((id) => dogById.get(id))
       .filter(Boolean)
-      .map((d) => ({ name: d!.name, breed: d!.breed }));
+      .map((d) => ({
+        name: d!.name,
+        breed: d!.breed,
+        size: (d as { size?: string | null }).size ?? null,
+        age: (d as { age?: number | null }).age ?? null,
+        temperament: (d as { temperament?: string | null }).temperament ?? null,
+        vaccination_status: Boolean((d as { vaccination_status?: boolean }).vaccination_status),
+      }));
     return {
       id: e.id,
       owner_id: e.owner_id,
@@ -168,6 +176,7 @@ export async function getMyLeads(): Promise<Lead[]> {
       dogs,
       budget: intake?.budget != null ? Number(intake.budget) : null,
       neighbourhood: intake?.neighbourhood ?? null,
+      schedulePref: (intake as { schedule?: string | null })?.schedule ?? null,
       hasRecommendation: recoEvalIds.has(e.id),
       contactPhone: e.contact_phone ?? null,
       scheduleConfirmed: Boolean(e.schedule_confirmed),

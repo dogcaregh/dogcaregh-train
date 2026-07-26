@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { sendRecommendation } from "@/app/actions";
+import { SubmitButton } from "@/components/submit-button";
 import { programTotal, totalSessions, cedis } from "@/lib/pricing";
 
 // The custom plan builder from the prototype: sessions/week × weeks × price
@@ -51,9 +52,9 @@ export function RecommendationBuilder({ evaluationId }: { evaluationId: string }
         <span className="text-espresso font-semibold">{cedis(total)}</span>
       </div>
 
-      <button className="w-full rounded-full bg-mahogany text-ivory text-sm font-semibold px-5 py-2.5 hover:bg-espresso transition-colors">
+      <SubmitButton pendingText="Sending…" className="w-full rounded-full bg-mahogany text-ivory text-sm font-semibold px-5 py-2.5 hover:bg-espresso transition-colors disabled:opacity-60">
         Send custom plan to owner
-      </button>
+      </SubmitButton>
     </form>
   );
 }
