@@ -1,12 +1,21 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase";
 import { sendMessage } from "@/app/actions";
+import { SubmitButton } from "@/components/submit-button";
 import type { Msg } from "@/lib/messages";
 
 const fmt = (iso: string) =>
   new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
 
-/** Read-only thread view + composer. `redirectTo` is the current thread URL. */
+/**
+ * Live chat thread + composer. Seeds from server-rendered messages and
+ * subscribes to new ones in this owner↔trainer thread (RLS-scoped), so replies
+ * appear without a refresh. `redirectTo` is the current thread URL.
+ */
 export function MessageThread({
-  messages,
+  messages: initial,
   meId,
   ownerId,
   trainerId,
@@ -18,9 +27,48 @@ export function MessageThread({
   trainerId: string;
   redirectTo: string;
 }) {
+  const [messages, setMessages] = useState<Msg[]>(initial);
+  const endRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: "end" });
+  }, [messages]);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`msgs:${ownerId}:${trainerId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "trainer_messages", filter: `owner_id=eq.${ownerId}` },
+        (payload) => {
+          const m = payload.new as Msg & { owner_id: string; trainer_id: string };
+          if (m.trainer_id !== trainerId) return; // same owner, different trainer thread
+          setMessages((cur) =>
+            cur.some((x) => x.id === m.id)
+              ? cur
+              : [...cur, { id: m.id, sender_id: m.sender_id, content: m.content, read: m.read, created_at: m.created_at }]
+          );
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [ownerId, trainerId]);
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      const text = (e.target as HTMLTextAreaElement).value.trim();
+      if (text) formRef.current?.requestSubmit();
+    }
+  }
+
   return (
     <div>
-      <div className="grid gap-2">
+      <div className="grid gap-2 max-h-[60vh] overflow-y-auto pr-1">
         {messages.length === 0 && (
           <p className="text-sm text-muted py-8 text-center">No messages yet — say hello 👋</p>
         )}
@@ -39,9 +87,10 @@ export function MessageThread({
             </div>
           );
         })}
+        <div ref={endRef} />
       </div>
 
-      <form action={sendMessage} className="mt-4 flex items-end gap-2">
+      <form ref={formRef} action={sendMessage} className="mt-4 flex items-end gap-2">
         <input type="hidden" name="owner_id" value={ownerId} />
         <input type="hidden" name="trainer_id" value={trainerId} />
         <input type="hidden" name="redirect_to" value={redirectTo} />
@@ -50,15 +99,13 @@ export function MessageThread({
           rows={2}
           required
           maxLength={4000}
-          placeholder="Write a message…"
+          onKeyDown={onKeyDown}
+          placeholder="Write a message…  (Enter to send, Shift+Enter for a new line)"
           className="flex-1 resize-none rounded-xl border border-hairline bg-white px-3 py-2 text-sm text-espresso focus:border-gold focus:outline-none"
         />
-        <button
-          type="submit"
-          className="rounded-full bg-mahogany text-ivory text-sm font-semibold px-5 py-2.5 hover:bg-espresso transition-colors"
-        >
+        <SubmitButton pendingText="Sending…" className="rounded-full bg-mahogany text-ivory text-sm font-semibold px-5 py-2.5 hover:bg-espresso transition-colors disabled:opacity-60">
           Send
-        </button>
+        </SubmitButton>
       </form>
     </div>
   );
