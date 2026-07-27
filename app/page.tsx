@@ -48,6 +48,9 @@ export default async function Home() {
               <a href="/login?next=/trainers" className="rounded-full border border-hairline text-walnut text-sm font-semibold px-6 py-3 hover:border-gold transition-colors">
                 I have a DogCareGH account
               </a>
+              <a href="/signup" className="rounded-full border border-hairline text-walnut text-sm font-semibold px-6 py-3 hover:border-gold transition-colors">
+                Sign up as a trainer
+              </a>
             </div>
             <p className="mt-4 text-xs text-muted">Vetted trainers · Secure payments · Progress you can track</p>
           </div>
