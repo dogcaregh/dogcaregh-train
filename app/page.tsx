@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { signOutAction } from "@/app/actions";
 import { isAdmin } from "@/lib/admin";
 import { getServerUser, getMyDogs, getMyOwnerProfile, getFeaturedTrainers } from "@/lib/owner-data";
+import { PawDivider } from "@/components/paw-divider";
 import { cedis } from "@/lib/pricing";
 
 // Always read the live session — never statically cache this page.
@@ -29,8 +30,8 @@ export default async function Home() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/storm.jpg" alt="" aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 h-full w-full object-cover opacity-50" />
           {/* soft ivory wash at the edges keeps the text crisp */}
-          <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-ivory/50 via-transparent to-ivory" aria-hidden="true" />
-          <div className="mx-auto max-w-3xl px-6 pt-16 pb-14 text-center">
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-ivory/40 via-transparent to-ivory" aria-hidden="true" />
+          <div className="mx-auto max-w-3xl px-6 pt-20 pb-16 text-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="DogTrainerGH" className="mx-auto h-36 w-36 object-contain" />
             <h1 className="mt-2 font-display text-4xl sm:text-5xl text-espresso leading-tight">
@@ -52,6 +53,8 @@ export default async function Home() {
           </div>
         </section>
 
+        <PawDivider />
+
         {/* How it works */}
         <section className="mx-auto max-w-4xl px-6 py-10">
           <h2 className="text-center font-display text-2xl text-espresso">How it works</h2>
@@ -62,8 +65,11 @@ export default async function Home() {
           </div>
         </section>
 
+        <PawDivider />
+
         {/* Featured trainers */}
         {featured.length > 0 && (
+          <>
           <section className="mx-auto max-w-4xl px-6 py-10">
             <h2 className="text-center font-display text-2xl text-espresso">Meet some of our trainers</h2>
             <div className="mt-8 grid gap-4 sm:grid-cols-3">
@@ -99,6 +105,8 @@ export default async function Home() {
               <a href="/login?next=/trainers" className="text-sm text-gold font-semibold hover:underline">Browse all trainers →</a>
             </p>
           </section>
+          <PawDivider />
+          </>
         )}
 
         {/* Trainer CTA */}
@@ -170,7 +178,7 @@ export default async function Home() {
 function Step({ n, title, body }: { n: number; title: string; body: string }) {
   return (
     <div className="rounded-2xl border border-hairline bg-white p-5">
-      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cream text-espresso font-display font-semibold">
+      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gold text-ivory font-display font-semibold shadow-sm">
         {n}
       </span>
       <h3 className="mt-3 text-espresso font-semibold">{title}</h3>
