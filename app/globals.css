@@ -9,7 +9,11 @@
 
 body {
   color: var(--foreground);
-  background: var(--background);
+  /* Warm ivory base with a faint paw-print texture — a subtle app-wide dog theme. */
+  background-color: var(--background);
+  background-image: url('/paw.svg');
+  background-size: 140px 140px;
+  background-attachment: fixed;
   font-family: var(--font-body), sans-serif;
 }
 

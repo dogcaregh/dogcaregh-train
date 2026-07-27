@@ -24,26 +24,32 @@ export default async function Home() {
     const featured = await getFeaturedTrainers(3);
     return (
       <main className="min-h-screen">
-        {/* Hero */}
-        <section className="mx-auto max-w-3xl px-6 pt-16 pb-14 text-center">
+        {/* Hero — dog photo blended at 50% behind the content */}
+        <section className="relative isolate overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="DogTrainerGH" className="mx-auto h-36 w-36 object-contain" />
-          <h1 className="mt-2 font-display text-4xl sm:text-5xl text-espresso leading-tight">
-            Managed dog training in Ghana
-          </h1>
-          <p className="mt-4 text-lg text-walnut max-w-xl mx-auto">
-            Book a vetted trainer, get a program tailored to your dog, and pay securely on-platform —
-            session by session.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <a href={registerUrl} className="rounded-full bg-espresso text-ivory text-sm font-semibold px-6 py-3 hover:bg-mahogany transition-colors">
-              Get started →
-            </a>
-            <a href="/login?next=/trainers" className="rounded-full border border-hairline text-walnut text-sm font-semibold px-6 py-3 hover:border-gold transition-colors">
-              I have a DogCareGH account
-            </a>
+          <img src="/storm.jpg" alt="" aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 h-full w-full object-cover opacity-50" />
+          {/* soft ivory wash at the edges keeps the text crisp */}
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-ivory/50 via-transparent to-ivory" aria-hidden="true" />
+          <div className="mx-auto max-w-3xl px-6 pt-16 pb-14 text-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="DogTrainerGH" className="mx-auto h-36 w-36 object-contain" />
+            <h1 className="mt-2 font-display text-4xl sm:text-5xl text-espresso leading-tight">
+              Managed dog training in Ghana
+            </h1>
+            <p className="mt-4 text-lg text-walnut max-w-xl mx-auto">
+              Book a vetted trainer, get a program tailored to your dog, and pay securely on-platform —
+              session by session.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <a href={registerUrl} className="rounded-full bg-espresso text-ivory text-sm font-semibold px-6 py-3 hover:bg-mahogany transition-colors">
+                Get started →
+              </a>
+              <a href="/login?next=/trainers" className="rounded-full border border-hairline text-walnut text-sm font-semibold px-6 py-3 hover:border-gold transition-colors">
+                I have a DogCareGH account
+              </a>
+            </div>
+            <p className="mt-4 text-xs text-muted">Vetted trainers · Secure payments · Progress you can track</p>
           </div>
-          <p className="mt-4 text-xs text-muted">Vetted trainers · Secure payments · Progress you can track</p>
         </section>
 
         {/* How it works */}
