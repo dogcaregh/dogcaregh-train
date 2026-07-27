@@ -262,6 +262,94 @@ export async function getFeaturedTrainers(limit = 3): Promise<FeaturedTrainer[]>
   });
 }
 
+/**
+ * Public read of a single verified trainer for the signed-out profile page.
+ * Service role so it works without a session and without loosening RLS on the
+ * shared users table — reads only public listing fields. Returns null if the
+ * trainer isn't found/active/verified or the service key isn't configured.
+ * `score` is 0 (no owner to rank against).
+ */
+export async function getPublicTrainer(id: string): Promise<Trainer | null> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  const admin = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+
+  // Prefer multi_dog_discount; fall back if that migration isn't applied yet.
+  const withDisc = await admin
+    .from("trainer_profiles")
+    .select(
+      "id, user_id, bio, specialties, breeds, neighbourhoods, methods, credentials, years_experience, eval_fee, vetting_status, rating_avg, review_count, avatar_url, gallery_photos, multi_dog_discount, users(name)"
+    )
+    .eq("id", id)
+    .eq("active", true)
+    .eq("vetting_status", "verified")
+    .maybeSingle();
+  const row = withDisc.error
+    ? (
+        await admin
+          .from("trainer_profiles")
+          .select(
+            "id, user_id, bio, specialties, breeds, neighbourhoods, methods, credentials, years_experience, eval_fee, vetting_status, rating_avg, review_count, avatar_url, gallery_photos, users(name)"
+          )
+          .eq("id", id)
+          .eq("active", true)
+          .eq("vetting_status", "verified")
+          .maybeSingle()
+      ).data
+    : withDisc.data;
+  if (!row) return null;
+
+  const { data: programs } = await admin
+    .from("trainer_programs")
+    .select("id, trainer_id, name, description, weeks, sessions_per_week, price, discount, is_custom")
+    .eq("trainer_id", id)
+    .eq("active", true);
+
+  const progs = ((programs ?? []) as Program[]).sort((a, b) => a.price - b.price);
+  const rel = row.users as unknown;
+  const name =
+    (Array.isArray(rel) ? rel[0]?.name : (rel as { name?: string } | null)?.name) ?? "Trainer";
+
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    name,
+    bio: row.bio,
+    specialties: row.specialties ?? [],
+    breeds: row.breeds ?? [],
+    neighbourhoods: row.neighbourhoods ?? [],
+    methods: row.methods,
+    credentials: row.credentials,
+    years_experience: row.years_experience,
+    eval_fee: Number(row.eval_fee),
+    vetting_status: row.vetting_status,
+    rating_avg: Number(row.rating_avg ?? 0),
+    review_count: Number(row.review_count ?? 0),
+    avatar_url: (row.avatar_url as string | null) ?? null,
+    gallery_photos: (row.gallery_photos as string[] | null) ?? [],
+    multi_dog_discount: Number((row as { multi_dog_discount?: number }).multi_dog_discount ?? 0),
+    programs: progs,
+    fromPrice: progs.length ? Math.min(...progs.map((p) => p.price)) : null,
+    score: 0,
+  };
+}
+
+/** Public (anonymous) reviews for the signed-out profile — service role. */
+export async function getPublicTrainerReviews(trainerId: string) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key)
+    return [] as { id: string; rating: number; text: string | null; created_at: string }[];
+  const admin = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+  const { data } = await admin
+    .from("trainer_reviews")
+    .select("id, rating, text, created_at")
+    .eq("trainer_id", trainerId)
+    .order("created_at", { ascending: false });
+  return data ?? [];
+}
+
 type ServerClient = ReturnType<typeof createServerSupabaseClient>;
 
 /**

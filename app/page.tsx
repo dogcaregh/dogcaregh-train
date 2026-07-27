@@ -74,7 +74,7 @@ export default async function Home() {
             <h2 className="text-center font-display text-2xl text-espresso">Meet some of our trainers</h2>
             <div className="mt-8 grid gap-4 sm:grid-cols-3">
               {featured.map((t) => (
-                <a key={t.id} href={`/login?next=/trainers/${t.id}`} className="rounded-2xl border border-hairline bg-white p-5 hover:border-gold transition-colors">
+                <a key={t.id} href={`/trainers/${t.id}`} className="rounded-2xl border border-hairline bg-white p-5 hover:border-gold transition-colors">
                   <div className="flex items-center gap-3">
                     {t.avatar_url && (
                       // eslint-disable-next-line @next/next/no-img-element
