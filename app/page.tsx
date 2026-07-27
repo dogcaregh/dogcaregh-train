@@ -102,7 +102,7 @@ export default async function Home() {
               ))}
             </div>
             <p className="mt-6 text-center">
-              <a href="/login?next=/trainers" className="text-sm text-gold font-semibold hover:underline">Browse all trainers →</a>
+              <a href="/trainers" className="text-sm text-gold font-semibold hover:underline">Browse all trainers →</a>
             </p>
           </section>
           <PawDivider />

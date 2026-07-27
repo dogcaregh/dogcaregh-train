@@ -335,6 +335,88 @@ export async function getPublicTrainer(id: string): Promise<Trainer | null> {
   };
 }
 
+/**
+ * Public list of all active, verified trainers for the signed-out /trainers
+ * page. Service role (no session, no RLS loosening on the shared users table).
+ * Ordered best-rated first — there's no owner to rank fit against, so `score`
+ * is 0. Returns [] if the service key isn't configured.
+ */
+export async function getPublicTrainers(): Promise<Trainer[]> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return [];
+  const admin = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+
+  // Prefer multi_dog_discount; fall back if that migration isn't applied yet.
+  const withDisc = await admin
+    .from("trainer_profiles")
+    .select(
+      "id, user_id, bio, specialties, breeds, neighbourhoods, methods, credentials, years_experience, eval_fee, vetting_status, rating_avg, review_count, avatar_url, gallery_photos, multi_dog_discount, users(name)"
+    )
+    .eq("active", true)
+    .eq("vetting_status", "verified");
+  const profiles = withDisc.error
+    ? (
+        await admin
+          .from("trainer_profiles")
+          .select(
+            "id, user_id, bio, specialties, breeds, neighbourhoods, methods, credentials, years_experience, eval_fee, vetting_status, rating_avg, review_count, avatar_url, gallery_photos, users(name)"
+          )
+          .eq("active", true)
+          .eq("vetting_status", "verified")
+      ).data
+    : withDisc.data;
+
+  if (!profiles || profiles.length === 0) return [];
+
+  const ids = profiles.map((p) => p.id);
+  const { data: programs } = await admin
+    .from("trainer_programs")
+    .select("id, trainer_id, name, description, weeks, sessions_per_week, price, discount, is_custom")
+    .in("trainer_id", ids)
+    .eq("active", true);
+
+  const byTrainer = new Map<string, Program[]>();
+  (programs ?? []).forEach((pr) => {
+    const arr = byTrainer.get(pr.trainer_id) ?? [];
+    arr.push(pr as Program);
+    byTrainer.set(pr.trainer_id, arr);
+  });
+
+  const trainers = profiles.map((row): Trainer => {
+    const progs = (byTrainer.get(row.id) ?? []).sort((a, b) => a.price - b.price);
+    const rel = row.users as unknown;
+    const name =
+      (Array.isArray(rel) ? rel[0]?.name : (rel as { name?: string } | null)?.name) ?? "Trainer";
+    return {
+      id: row.id,
+      user_id: row.user_id,
+      name,
+      bio: row.bio,
+      specialties: row.specialties ?? [],
+      breeds: row.breeds ?? [],
+      neighbourhoods: row.neighbourhoods ?? [],
+      methods: row.methods,
+      credentials: row.credentials,
+      years_experience: row.years_experience,
+      eval_fee: Number(row.eval_fee),
+      vetting_status: row.vetting_status,
+      rating_avg: Number(row.rating_avg ?? 0),
+      review_count: Number(row.review_count ?? 0),
+      avatar_url: (row.avatar_url as string | null) ?? null,
+      gallery_photos: (row.gallery_photos as string[] | null) ?? [],
+      multi_dog_discount: Number((row as { multi_dog_discount?: number }).multi_dog_discount ?? 0),
+      programs: progs,
+      fromPrice: progs.length ? Math.min(...progs.map((p) => p.price)) : null,
+      score: 0,
+    };
+  });
+
+  return trainers.sort(
+    (a, b) => b.rating_avg - a.rating_avg || b.review_count - a.review_count || a.name.localeCompare(b.name)
+  );
+}
+
 /** Public (anonymous) reviews for the signed-out profile — service role. */
 export async function getPublicTrainerReviews(trainerId: string) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
