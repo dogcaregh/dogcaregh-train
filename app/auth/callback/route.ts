@@ -39,5 +39,8 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.redirect(`${origin}/signup?error=auth`);
+  // No code, or the exchange failed (e.g. the link was opened on a different
+  // device/browser than sign-up, so the PKCE verifier cookie is missing). Send
+  // them to log in to finish, rather than back to a fresh sign-up form.
+  return NextResponse.redirect(`${origin}/login?error=auth`);
 }

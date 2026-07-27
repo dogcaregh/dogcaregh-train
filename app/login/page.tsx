@@ -16,9 +16,15 @@ export default function LoginPage() {
   const [ownerSignupUrl, setOwnerSignupUrl] = useState(`${CARE_APP}/register/owner`);
 
   useEffect(() => {
-    const raw = new URLSearchParams(window.location.search).get("next");
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get("next");
     const next = raw && raw.startsWith("/") ? raw : "/onboarding";
     setOwnerSignupUrl(`${CARE_APP}/register/owner?return_to=${encodeURIComponent(`${window.location.origin}${next}`)}`);
+    // Sent here by /auth/callback when a confirmation link couldn't be exchanged
+    // (usually opened on a different device than sign-up). Explain why.
+    if (params.get("error") === "auth") {
+      setError("Your email is confirmed — please log in to finish setting up your account.");
+    }
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {

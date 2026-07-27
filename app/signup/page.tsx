@@ -41,19 +41,33 @@ export default function TrainerSignup() {
 
     setStatus("loading");
     const supabase = createClient();
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         // role is stamped in metadata now; the users.is_trainer flag is set
         // when the trainer profile is created (Phase 3, sub-step 3).
         data: { name, role: "trainer", phone: phone.trim(), region, location: neighbourhood },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        // Land freshly-confirmed trainers on their dashboard (which prompts
+        // profile setup for a new account) rather than the public landing page.
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/trainer`,
       },
     });
 
     if (error) {
       setError(error.message);
+      setStatus("error");
+      return;
+    }
+
+    // Auth is shared with the care app, so this email may already have a
+    // DogCareGH account. In that case Supabase sends NO confirmation email and
+    // returns an obfuscated user with an empty identities array — don't promise
+    // a link that will never arrive; point them at login instead.
+    if (data.user && data.user.identities?.length === 0) {
+      setError(
+        "You already have a DogCareGH account with this email. Log in and set up a trainer profile instead — no need to sign up again."
+      );
       setStatus("error");
       return;
     }
