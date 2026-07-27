@@ -1,5 +1,6 @@
 import { OwnerNav } from "@/components/owner-nav";
 import { SubmitButton } from "@/components/submit-button";
+import { EmptyState } from "@/components/empty-state";
 import { listMyBookings, listMyEvaluations, relName } from "@/lib/owner-data";
 import { submitReview, confirmEvaluationSchedule } from "@/app/actions";
 import { cedis } from "@/lib/pricing";
@@ -57,9 +58,11 @@ export default async function BookingsPage({
         <section className="mt-8">
           <h2 className="text-lg text-espresso">Evaluations</h2>
           {evals.length === 0 ? (
-            <p className="mt-2 text-sm text-muted">
-              No evaluations yet. <a href="/trainers" className="text-gold hover:underline">Find a trainer →</a>
-            </p>
+            <EmptyState
+              title="No evaluations yet"
+              body="Book an evaluation and a vetted trainer will assess your dog and recommend a plan."
+              action={<a href="/trainers" className="rounded-full bg-espresso text-ivory text-sm font-semibold px-5 py-2.5 hover:bg-mahogany transition-colors">Find a trainer →</a>}
+            />
           ) : (
             <div className="mt-3 grid gap-3">
               {evals.map((e) => {
@@ -92,7 +95,7 @@ export default async function BookingsPage({
         <section className="mt-8">
           <h2 className="text-lg text-espresso">Programs</h2>
           {bookings.length === 0 ? (
-            <p className="mt-2 text-sm text-muted">No booked programs yet.</p>
+            <EmptyState title="No booked programs yet" body="Accept a trainer's recommendation to start a training program." />
           ) : (
             <div className="mt-3 grid gap-3">
               {bookings.map((b) => {

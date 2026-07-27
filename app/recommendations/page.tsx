@@ -1,6 +1,7 @@
 import { OwnerNav } from "@/components/owner-nav";
 import { ConfirmPay } from "@/components/confirm-pay";
 import { DeclineRecommendation } from "@/components/decline-recommendation";
+import { EmptyState } from "@/components/empty-state";
 import { listMyRecommendations } from "@/lib/owner-data";
 import { acceptRecommendation } from "@/app/actions";
 import { cedis, programTotal, totalSessions, multiDogTotal } from "@/lib/pricing";
@@ -24,10 +25,7 @@ export default async function RecommendationsPage({ searchParams }: { searchPara
         )}
 
         {recs.length === 0 ? (
-          <div className="mt-6 rounded-xl bg-cream border border-hairline p-5 text-sm text-walnut">
-            No recommendations yet. After a trainer evaluates your dog, their recommended
-            program lands here as a card you can accept.
-          </div>
+          <EmptyState title="No recommendations yet" body="After a trainer evaluates your dog, their recommended program lands here as a card you can accept." />
         ) : (
           <div className="mt-6 grid gap-4">
             {recs.map((r) => {

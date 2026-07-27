@@ -46,7 +46,7 @@ export function NavBar({
       </div>
 
       {open && (
-        <nav className="md:hidden border-t border-hairline bg-white px-5 py-3 flex flex-col gap-3 text-sm" onClick={() => setOpen(false)}>
+        <nav className="md:hidden border-t border-hairline bg-white px-5 py-3 flex flex-col gap-3 text-sm">
           {links.map((l) => (
             <a key={l.href} href={l.href} className="text-walnut hover:text-espresso">{l.label}</a>
           ))}

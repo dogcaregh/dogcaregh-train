@@ -1,4 +1,5 @@
 import { OwnerNav } from "@/components/owner-nav";
+import { EmptyState } from "@/components/empty-state";
 import { getMyOwnerProfile, listRankedTrainers } from "@/lib/owner-data";
 import { cedis } from "@/lib/pricing";
 
@@ -34,7 +35,7 @@ export default async function TrainersPage() {
         )}
 
         {trainers.length === 0 ? (
-          <p className="mt-8 text-muted">No trainers available yet.</p>
+          <EmptyState title="No trainers available yet" body="Check back soon — vetted trainers appear here as they're approved." />
         ) : (
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             {trainers.map((t, i) => (

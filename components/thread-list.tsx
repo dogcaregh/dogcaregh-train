@@ -1,4 +1,5 @@
 import type { ThreadSummary } from "@/lib/messages";
+import { EmptyState } from "@/components/empty-state";
 
 const ago = (iso: string) =>
   new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
@@ -6,7 +7,7 @@ const ago = (iso: string) =>
 /** Inbox: one row per conversation. `base` is "/messages" or "/trainer/messages". */
 export function ThreadList({ threads, base }: { threads: ThreadSummary[]; base: string }) {
   if (threads.length === 0) {
-    return <p className="mt-6 text-sm text-muted">No conversations yet.</p>;
+    return <EmptyState title="No conversations yet" body="Messages with your trainers and owners appear here." />;
   }
   return (
     <div className="mt-6 grid gap-2">

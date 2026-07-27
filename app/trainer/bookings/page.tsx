@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { TrainerNav } from "@/components/trainer-nav";
 import { SubmitButton } from "@/components/submit-button";
 import { getMyTrainerProfile, getMyTrainerBookings } from "@/lib/trainer-data";
+import { EmptyState } from "@/components/empty-state";
 import { markSessionComplete, scheduleSession, autoScheduleSessions } from "@/app/actions";
 import { cedis } from "@/lib/pricing";
 
@@ -66,7 +67,7 @@ export default async function TrainerBookingsPage({ searchParams }: { searchPara
         )}
 
         {bookings.length === 0 ? (
-          <p className="mt-8 text-muted">No booked programs yet.</p>
+          <EmptyState title="No clients yet" body="Once an owner accepts a recommendation and pays, they'll appear here to schedule." />
         ) : (
           <>
             <div className="mt-6 space-y-4">

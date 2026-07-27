@@ -3,6 +3,7 @@ import { TrainerNav } from "@/components/trainer-nav";
 import { ProgramForm } from "@/components/program-form";
 import { DeleteProgram } from "@/components/delete-program";
 import { SubmitButton } from "@/components/submit-button";
+import { EmptyState } from "@/components/empty-state";
 import { getMyTrainerProfile, getMyPrograms } from "@/lib/trainer-data";
 import { setProgramActive } from "@/app/actions";
 import { cedis, programTotal, totalSessions } from "@/lib/pricing";
@@ -31,9 +32,7 @@ export default async function ProgramsPage({ searchParams }: { searchParams: { s
         )}
 
         {programs.length === 0 ? (
-          <div className="mt-6 rounded-2xl border border-hairline bg-cream p-5 text-sm text-walnut">
-            No programs yet — add your first below. It&apos;s what owners book, so you can&apos;t take bookings without one.
-          </div>
+          <EmptyState title="No programs yet" body="Add your first below — it's what owners book, so you can't take bookings without one." />
         ) : (
           <div className="mt-6 space-y-4">
             {programs.map((p) => {

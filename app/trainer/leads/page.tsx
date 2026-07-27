@@ -4,6 +4,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { getMyTrainerProfile, getMyLeads, getMyPrograms, type Lead } from "@/lib/trainer-data";
 import { scheduleEvaluation, sendRecommendation } from "@/app/actions";
 import { RecommendationBuilder } from "@/components/recommendation-builder";
+import { EmptyState } from "@/components/empty-state";
 import { cedis } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
@@ -39,7 +40,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: { sent
         )}
 
         {leads.length === 0 ? (
-          <p className="mt-8 text-muted">No evaluation requests yet.</p>
+          <EmptyState title="No leads yet" body="Paid evaluation requests from owners land here — call, evaluate, then send a recommendation." />
         ) : (
           <>
             <div className="mt-6 space-y-4">

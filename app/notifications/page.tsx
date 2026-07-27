@@ -1,6 +1,7 @@
 import { OwnerNav } from "@/components/owner-nav";
 import { TrainerNav } from "@/components/trainer-nav";
 import { NotifLink } from "@/components/notif-link";
+import { EmptyState } from "@/components/empty-state";
 import { listMyNotifications } from "@/lib/notify";
 import { getServerUser } from "@/lib/owner-data";
 import { markAllNotificationsRead } from "@/app/actions";
@@ -36,7 +37,7 @@ export default async function NotificationsPage() {
         </div>
 
         {items.length === 0 ? (
-          <p className="mt-8 text-muted">No notifications yet.</p>
+          <EmptyState title="No notifications yet" body="Updates about your evaluations, bookings, and messages show up here." />
         ) : (
           <div className="mt-6 grid gap-2">
             {items.map((n) => (
